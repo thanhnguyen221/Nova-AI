@@ -1,0 +1,150 @@
+// Nova AI Project - Database Schema (DBML)
+// Paste this code to https://dbdiagram.io to generate ERD diagram
+
+// Django Default User Table (referenced by Foreign Keys)
+Table User {
+  id int [pk, increment]
+  username varchar [not null, unique]
+  email varchar [not null, unique]
+  password varchar [not null]
+  first_name varchar
+  last_name varchar
+  is_active boolean [default: true]
+  is_staff boolean [default: false]
+  is_superuser boolean [default: false]
+  date_joined datetime [not null]
+  last_login datetime
+}
+
+// ==================== CHAT MODULE ====================
+
+Table Conversation {
+  id int [pk, increment]
+  user_id int [ref: > User.id, note: 'Nullable - anonymous users allowed']
+  title varchar(255) [default: 'New Chat']
+  notebook_files json [null, default: '[]', note: 'URLs and files for Notebook LLM']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  
+  indexes {
+    (user_id, created_at) [name: 'idx_conversation_user_created']
+  }
+}
+
+Table Message {
+  id int [pk, increment]
+  conversation_id int [ref: > Conversation.id, not null, note: 'CASCADE on delete']
+  role varchar(10) [not null, note: 'user or model']
+  content text [not null]
+  thinking_process text [null, note: 'AI reasoning process']
+  sources text [null]
+  attachments json [null, default: '[]', note: 'File attachments metadata']
+  created_at datetime [not null]
+  
+  indexes {
+    conversation_id [name: 'idx_message_conversation']
+    (conversation_id, created_at) [name: 'idx_message_conv_created']
+  }
+}
+
+// ==================== SLIDE/PRESENTATION MODULE ====================
+// Note: SlideTemplate table removed - not needed
+
+Table SlideDeck {
+  id int [pk, increment]
+  user_id int [ref: > User.id, not null, note: 'CASCADE on delete']
+  title varchar(255) [default: 'Untitled Presentation']
+  description text [null]
+  theme varchar(20) [default: 'modern', note: 'modern, light, gradient, minimal, corporate, creative']
+  aspect_ratio varchar(10) [default: '16:9', note: '16:9, 4:3, 21:9']
+  is_public boolean [default: false]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  
+  indexes {
+    user_id [name: 'idx_slidedeck_user']
+    updated_at [name: 'idx_slidedeck_updated']
+  }
+}
+
+Table Slide {
+  id int [pk, increment]
+  deck_id int [ref: > SlideDeck.id, not null, note: 'CASCADE on delete']
+  order int [default: 0, note: 'Display order within deck']
+  layout varchar(20) [default: 'content', note: 'title, content, two-column, image-text, text-image, full-image, quote, data, section, blank']
+  content json [default: '{}', note: 'Slide content: text, images, bullets, etc.']
+  custom_css text [null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  
+  indexes {
+    (deck_id, order) [name: 'idx_slide_deck_order', unique]
+  }
+}
+
+Table SlideExport {
+  id int [pk, increment]
+  deck_id int [ref: > SlideDeck.id, not null, note: 'CASCADE on delete']
+  format varchar(10) [not null, note: 'pptx, pdf, html, images']
+  file varchar(255) [not null, note: 'File upload path']
+  file_size int [not null, note: 'Size in bytes']
+  download_count int [default: 0]
+  created_at datetime [not null]
+  
+  indexes {
+    deck_id [name: 'idx_export_deck']
+    (deck_id, created_at) [name: 'idx_export_deck_created']
+  }
+}
+
+// ==================== USER MANAGEMENT MODULE ====================
+
+Table UserProfile {
+  id int [pk, increment]
+  user_id int [ref: - User.id, not null, unique, note: 'One-to-One relationship, CASCADE on delete']
+  is_pro boolean [default: false, note: 'Active Pro subscription flag']
+  pro_expiry_date datetime [null, note: 'Pro subscription expiry date']
+  updated_at datetime [not null]
+  
+  indexes {
+    user_id [name: 'idx_profile_user', unique]
+    is_pro [name: 'idx_profile_is_pro']
+  }
+}
+
+// ==================== RELATIONSHIP NOTES ====================
+
+/*
+RELATIONSHIPS SUMMARY:
+
+1. User (1) ----< (N) Conversation
+   - One user can have many conversations
+   - Nullable FK allows anonymous conversations
+
+2. User (1) ----< (N) SlideDeck  
+   - One user can create many slide decks
+   - CASCADE: deleting user deletes all decks
+
+3. User (1) ---- (1) UserProfile
+   - One-to-One extension of Django User
+   - Ref: - indicates one-to-one
+
+4. Conversation (1) ----< (N) Message
+   - One conversation has many messages
+   - CASCADE: deleting conversation deletes all messages
+
+5. SlideDeck (1) ----< (N) Slide
+   - One deck contains many slides
+   - CASCADE: deleting deck deletes all slides
+   - Order field maintains slide sequence
+
+6. SlideDeck (1) ----< (N) SlideExport
+   - One deck has many export history records
+   - CASCADE: deleting deck removes export history
+
+CONSTRAINTS:
+- All Foreign Keys have CASCADE delete
+- JSON fields store flexible content
+- Indexes on frequently queried columns
+- Unique constraints where applicable
+*/

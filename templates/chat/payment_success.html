@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Thanh toán thành công - Nova AI Pro{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+    <div class="max-w-md w-full text-center">
+        <!-- Success Icon -->
+        <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/30 mb-6 animate-bounce">
+            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+
+        <h1 class="text-3xl font-bold text-white mb-4">Thanh toán thành công! 🎉</h1>
+        <p class="text-zinc-400 mb-6">Bạn đã nâng cấp lên gói Pro thành công.</p>
+
+        <!-- Pro Card -->
+        <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-6 mb-6">
+            <div class="flex items-center justify-center space-x-2 mb-4">
+                <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                </svg>
+                <span class="text-xl font-bold text-amber-400">Pro Active</span>
+            </div>
+
+            <div class="space-y-2 text-sm">
+                <p class="text-zinc-300">Thời hạn: <span class="text-white font-semibold">{{ days }} ngày</span></p>
+                <p class="text-zinc-300">Hết hạn: <span class="text-white font-semibold">{{ pro_expiry_date|date:"d/m/Y H:i" }}</span></p>
+            </div>
+        </div>
+
+        <!-- Features Unlocked -->
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 mb-6">
+            <h3 class="text-lg font-semibold text-white mb-4">Tính năng đã mở khóa 🔓</h3>
+            <ul class="space-y-3 text-sm text-zinc-400 text-left">
+                <li class="flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>Trình chiếu AI (Presentations)</span>
+                </li>
+                <li class="flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>Xuất file PowerPoint, PDF</span>
+                </li>
+                <li class="flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>Tạo slide bằng AI</span>
+                </li>
+                <li class="flex items-center space-x-3">
+                    <svg class="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>Chế độ trình chiếu fullscreen</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- CTA Button -->
+        <a href="{% url 'slide_dashboard' %}" class="inline-flex items-center justify-center space-x-2 w-full py-3 px-6 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 rounded-xl text-white font-semibold shadow-lg shadow-amber-500/20 transition-all transform hover:scale-[1.02]">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <span>Đi đến Presentations</span>
+        </a>
+
+        <a href="{% url 'index' %}" class="inline-block mt-4 text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
+            ← Quay lại Chat
+        </a>
+    </div>
+</div>
+{% endblock %}

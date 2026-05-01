@@ -1,0 +1,2310 @@
+{% extends 'base.html' %}
+{% load socialaccount %}
+
+{% block title %}{% if conversation %}{{ conversation.title }} - Nova AI{% else %}Nova AI{% endif %}{% endblock %}
+
+{% block content %}
+<div class="flex h-screen overflow-hidden bg-zinc-950">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-zinc-900/80 border-r border-zinc-800/50 flex flex-col backdrop-blur-sm">
+        <div class="p-4 border-b border-zinc-800/50">
+            <a href="{% url 'index' %}" onclick="return createNewChat(event)" class="flex items-center space-x-3 group">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <span class="text-lg font-semibold text-zinc-100">Nova AI</span>
+            </a>
+        </div>
+        
+        <div class="p-3">
+            <button onclick="createNewChat(event)" class="flex items-center justify-center space-x-2 w-full py-2.5 px-4 bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/50 rounded-xl transition-all group">
+                <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span class="text-sm font-medium text-zinc-300">New Chat</span>
+            </button>
+        </div>
+
+        {% if user.is_authenticated %}
+        <div class="flex-1 overflow-y-auto px-3 py-2" id="sidebar-conversations">
+            <h3 class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3 px-2">Recent</h3>
+            <div id="conversations-list">
+                {% if conversations %}
+                    {% for conv in conversations %}
+                    <div id="conv-{{ conv.id }}" class="sidebar-item group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-zinc-300 mb-1 {% if conversation and conversation.id == conv.id %}active{% endif %}">
+                        <a href="{% url 'chat_view' conv.id %}" onclick="return loadConversation(event, {{ conv.id }})" class="flex-1 flex items-center space-x-2 min-w-0">
+                            <svg class="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                            </svg>
+                            <span class="truncate conv-title">{{ conv.title }}</span>
+                        </a>
+                        <button onclick="deleteConversation(event, {{ conv.id }})" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 hover:text-red-400 rounded transition-all" title="Delete conversation">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-zinc-500 text-sm px-2" id="no-conversations">No conversations yet</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- User Profile & Logout -->
+        <div class="p-3 border-t border-zinc-800/50">
+            <div class="flex items-center space-x-3 px-2 mb-2">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-sm font-medium text-white">
+                    {{ user.username|first|upper }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-zinc-200 truncate">{{ user.username }}</p>
+                    <p class="text-xs text-zinc-500 truncate">{{ user.email }}</p>
+                </div>
+            </div>
+            <a href="{% url 'account_logout' %}" class="flex items-center space-x-2 text-sm text-zinc-400 hover:text-red-400 px-2 py-1.5 rounded-lg hover:bg-zinc-800/50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                <span>Logout</span>
+            </a>
+        </div>
+        {% else %}
+        <div class="flex-1"></div>
+        <div class="p-4 border-t border-zinc-800/50 space-y-2">
+            <a href="{% url 'account_login' %}" class="flex items-center justify-center space-x-2 w-full py-2.5 px-4 bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 rounded-xl transition-all text-sm font-medium text-zinc-200">
+                <span>Sign In</span>
+            </a>
+            <a href="{% provider_login_url 'google' %}" class="flex items-center justify-center space-x-2 w-full py-2.5 px-4 bg-white hover:bg-zinc-100 text-zinc-900 rounded-xl transition-all text-sm font-medium">
+                <svg class="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <span>Continue with Google</span>
+            </a>
+        </div>
+        {% endif %}
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col" id="main-area">
+        {% if not user.is_authenticated %}
+        <!-- Landing Page -->
+        <div class="flex-1 flex flex-col items-center justify-center p-8">
+            <div class="text-center max-w-2xl">
+                <div class="w-20 h-20 mx-auto mb-8 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-indigo-500/20">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <h1 class="text-5xl font-bold mb-4 text-white">Nova AI</h1>
+                <p class="text-xl text-zinc-400 mb-10">Search, reason, and discover with AI</p>
+                <a href="{% url 'account_login' %}" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors">Sign In to Start</a>
+            </div>
+        </div>
+        {% else %}
+        <!-- Chat Interface -->
+        <div id="chat-container" class="flex-1 flex flex-col overflow-hidden">
+            <!-- TASK 1: Add pb-48 to prevent messages hiding behind fixed input bar -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-6 pb-48 scroll-smooth">
+                {% if messages %}
+                    {% for message in messages %}
+                        {% if message.role == 'user' %}
+                        <!-- TASK 5: User message pill, right-aligned in max-w-3xl container with mb-8 spacing -->
+                        <div class="flex justify-end mb-8" data-message-id="{{ message.id }}">
+                            <div class="max-w-3xl mx-auto w-full px-4 flex justify-end">
+                                <div class="bg-zinc-800 text-zinc-100 rounded-2xl px-4 py-2 text-sm leading-relaxed max-w-[85%]">{{ message.content|linebreaksbr }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- TASK 3: Unified AI message container relying on JS rendering -->
+                        <div class="ai-message-container flex justify-start mb-8 w-full" data-message-id="{{ message.id }}" data-raw="{% if message.thinking_process %}&lt;thinking&gt;{{ message.thinking_process|escape }}&lt;/thinking&gt;{% endif %}{{ message.content|escape }}" data-sources="{{ message.sources|default:'[]' }}"></div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="flex flex-col items-center justify-center h-full text-center px-4">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-semibold text-zinc-100 mb-2">What can I help you with?</h2>
+                        <p class="text-zinc-500 mb-8">Ask me anything. I will search, reason, and provide sources.</p>
+                        <div class="grid grid-cols-2 gap-3 max-w-md w-full">
+                            <button onclick="setInput('What are the latest developments in AI?')" class="p-3 bg-zinc-900/50 hover:bg-zinc-800/50 border border-zinc-800/50 rounded-xl text-left text-sm text-zinc-300 transition-all">Latest AI developments</button>
+                            <button onclick="setInput('Explain quantum computing simply')" class="p-3 bg-zinc-900/50 hover:bg-zinc-800/50 border border-zinc-800/50 rounded-xl text-left text-sm text-zinc-300 transition-all">Explain quantum computing</button>
+                            <button onclick="setInput('Write a Python function to sort a list')" class="p-3 bg-zinc-900/50 hover:bg-zinc-800/50 border border-zinc-800/50 rounded-xl text-left text-sm text-zinc-300 transition-all">Python sorting function</button>
+                            <button onclick="setInput('What happened in tech news today?')" class="p-3 bg-zinc-900/50 hover:bg-zinc-800/50 border border-zinc-800/50 rounded-xl text-left text-sm text-zinc-300 transition-all">Today\'s tech news</button>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Status Indicator -->
+            <div id="status-indicator" class="hidden bg-zinc-900/80 border-t border-zinc-800/50 px-4 py-2">
+                <div class="max-w-3xl mx-auto flex items-center space-x-2 text-sm text-zinc-400">
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="status-text">Nova is thinking...</span>
+                </div>
+            </div>
+            
+            <!-- TASK 1: Perplexity-style Floating Input Bar - max-w-3xl centered -->
+            <div class="p-4 pb-6">
+                <form id="chat-form" class="max-w-3xl mx-auto w-full" onsubmit="sendMessage(event)">
+                    {% csrf_token %}
+                    <input type="hidden" name="conversation_id" id="conversation-id" value="{{ conversation.id|default:'' }}">
+                    
+                    <!-- Floating Input Container: Perplexity Clone -->
+                    <div class="relative bg-zinc-800 rounded-3xl border border-zinc-700 shadow-lg shadow-black/20">
+                        <div class="flex items-end p-3 gap-3">
+                            <!-- + Icon (Left) with Notebook LLM -->
+                            <div class="relative">
+                                <button type="button" id="attachment-btn" class="p-2 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-all flex-shrink-0" title="Notebook LLM - Quản lý file">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                </button>
+                                <!-- Dropdown menu for Notebook LLM -->
+                                <div id="attachment-menu" class="hidden absolute bottom-full left-0 mb-2 w-52 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50">
+                                    <div class="py-1">
+                                        <button type="button" onclick="openNotebookPanel()" class="flex items-center gap-3 px-4 py-3 hover:bg-zinc-700 text-sm text-zinc-100 w-full border-b border-zinc-700/50">
+                                            <div class="p-1.5 bg-blue-500/20 rounded">
+                                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                            </div>
+                                            <div class="text-left">
+                                                <div class="font-medium">Notebook LLM</div>
+                                                <div class="text-xs text-zinc-500">Mở panel quản lý file</div>
+                                            </div>
+                                        </button>
+                                        <label class="flex items-center gap-3 px-4 py-2 hover:bg-zinc-700 cursor-pointer text-sm text-zinc-300">
+                                            <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span>Upload nhanh</span>
+                                            <input type="file" id="file-upload" class="hidden" accept=".txt,.md,.pdf,.doc,.docx" multiple onchange="triggerQuickUpload(this.files)">
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Textarea with File Chips (Center) -->
+                            <div class="flex-1 flex flex-col gap-2">
+                                <!-- Attached File Chips (Hashtag Style) -->
+                                <div id="chat-file-chips" class="hidden flex flex-wrap gap-2 px-1">
+                                    <!-- File chips will be injected here -->
+                                </div>
+                                <textarea 
+                                    id="message-input"
+                                    name="message"
+                                    rows="1"
+                                    class="w-full bg-transparent text-zinc-100 placeholder-zinc-500 resize-none outline-none min-h-[44px] max-h-32 py-2.5 text-sm"
+                                    placeholder="Ask anything..."
+                                    onkeydown="handleKeyDown(event)"
+                                    oninput="autoResize(this)"
+                                ></textarea>
+                            </div>
+                            
+                            <!-- Model Selector (Right - Compact) -->
+                            <div class="relative flex items-center">
+                                <select id="model-selector" class="appearance-none bg-zinc-700/50 text-zinc-300 text-xs cursor-pointer focus:outline-none py-1.5 pl-2 pr-6 rounded-lg border border-zinc-600 hover:bg-zinc-700" disabled>
+                                    <option value="">Model...</option>
+                                </select>
+                                <svg class="w-3 h-3 text-zinc-400 absolute right-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </div>
+                            
+                            <!-- Send Button (Right) -->
+                            <button type="submit" id="send-button" disabled class="p-2 text-zinc-400 hover:text-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed rounded-full transition-all flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <!-- Bottom Bar: API Status + Location/Time -->
+                        <div class="flex items-center justify-between px-4 pb-2 pt-1">
+                            <div class="flex items-center gap-3">
+                                <!-- API Status -->
+                                <span id="api-status-indicator" class="flex items-center gap-1.5 text-xs">
+                                    <span id="api-status-dot" class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                                    <span id="api-status-text" class="text-zinc-500">Checking API...</span>
+                                </span>
+                            </div>
+                            
+                            <!-- Real-time Location & DateTime -->
+                            <div class="flex items-center gap-3 text-xs text-zinc-500">
+                                <span id="location-display" class="flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                    <span id="user-location">Hồ Chí Minh, VN</span>
+                                </span>
+                                <span id="datetime-display" class="font-mono">--:--:--</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p class="text-center text-xs text-zinc-600 mt-2">Shift+Enter for new line • Notebook LLM hỗ trợ đọc file PDF, TXT, MD</p>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- TASK: Right-Hand Sidebar for Sources -->
+    <aside id="sources-sidebar" class="w-80 bg-zinc-900 border-l border-zinc-800/50 flex flex-col transform transition-transform duration-300 translate-x-full fixed right-0 top-0 bottom-0 z-20 shadow-2xl">
+        <div class="p-4 border-b border-zinc-800/50 flex justify-between items-center">
+            <h3 class="font-semibold text-zinc-100 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                Nguồn tham khảo
+            </h3>
+            <button onclick="closeSourcesSidebar()" class="p-1 hover:bg-zinc-800 rounded text-zinc-400 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div id="sources-sidebar-content" class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+            <!-- Source cards will be injected here -->
+        </div>
+    </aside>
+
+    <!-- NOTEBOOK LLM PANEL - Visual Panel for file management -->
+    <aside id="notebook-panel" class="w-96 bg-zinc-900 border-l border-zinc-800/50 flex flex-col transform transition-transform duration-300 translate-x-full fixed right-0 top-0 bottom-0 z-30 shadow-2xl">
+        <!-- Header -->
+        <div class="p-4 border-b border-zinc-800/50 flex justify-between items-center bg-gradient-to-r from-blue-900/20 to-purple-900/20">
+            <div class="flex items-center gap-2">
+                <div class="p-2 bg-blue-500/20 rounded-lg">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-zinc-100">Notebook LLM</h3>
+                    <p class="text-xs text-zinc-500" id="notebook-file-count">0 sources</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-1">
+                <button onclick="clearAllNotebookSources()" class="p-2 hover:bg-red-500/20 rounded-lg text-zinc-400 hover:text-red-400 transition-colors" title="Xóa tất cả">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+                <button onclick="closeNotebookPanel()" class="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Upload Area -->
+        <div class="p-4 border-b border-zinc-800/50">
+            <div id="notebook-dropzone" class="border-2 border-dashed border-zinc-700 rounded-xl p-6 text-center hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer" onclick="document.getElementById('notebook-file-input').click()">
+                <svg class="w-8 h-8 text-zinc-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p class="text-sm text-zinc-400">Kéo thả file hoặc click để upload</p>
+                <p class="text-xs text-zinc-600 mt-1">PDF, TXT, MD, DOCX</p>
+                <input type="file" id="notebook-file-input" class="hidden" multiple accept=".pdf,.txt,.md,.doc,.docx" onchange="handleNotebookFileUpload(this.files)">
+            </div>
+        </div>
+
+        <!-- Source List -->
+        <div id="notebook-sources-list" class="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin">
+            <!-- Empty state -->
+            <div id="notebook-empty-state" class="text-center py-8">
+                <svg class="w-12 h-12 text-zinc-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                </svg>
+                <p class="text-zinc-500 text-sm">Chưa có file nào</p>
+                <p class="text-zinc-600 text-xs mt-1">Upload file để AI đọc và trả lời dựa trên nội dung</p>
+            </div>
+            
+            <!-- MacOS Style File Preview Panel -->
+            <div id="file-preview-panel" class="hidden border-t border-zinc-800/50 bg-zinc-800/30">
+                <div class="mac-window-header px-3 py-2 bg-gradient-to-b from-zinc-700 to-zinc-800 border-b border-zinc-700 flex items-center gap-2">
+                    <div class="flex gap-1.5">
+                        <div class="w-3 h-3 rounded-full bg-[#ff5f57] border border-[#e0443e]/30"></div>
+                        <div class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123]/30"></div>
+                        <div class="w-3 h-3 rounded-full bg-[#28c840] border border-[#1aab29]/30"></div>
+                    </div>
+                    <span id="preview-filename" class="text-xs text-zinc-400 ml-2 font-medium truncate">preview.txt</span>
+                </div>
+                <div id="preview-content" class="p-4 h-64 overflow-y-auto font-mono text-xs text-zinc-300 bg-zinc-900/50 whitespace-pre-wrap">
+                    <!-- Preview content goes here -->
+                </div>
+                <div class="px-3 py-2 bg-zinc-800/50 border-t border-zinc-700/50 flex justify-between items-center">
+                    <span id="preview-meta" class="text-xs text-zinc-500">0 bytes • txt</span>
+                    <button onclick="hideFilePreviewPanel()" class="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attach to Chat Button -->
+        <div class="p-4 border-t border-zinc-800/50 bg-zinc-900/50">
+            <button onclick="attachNotebookToChat()" id="attach-notebook-btn" class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span>Gắn vào khung chat</span>
+            </button>
+            <p class="text-xs text-zinc-600 text-center mt-2">File đã upload sẽ được AI đọc khi bạn gửi tin nhắn</p>
+        </div>
+    </aside>
+
+    <!-- Overlay for panels -->
+    <div id="panel-overlay" class="fixed inset-0 bg-black/50 z-10 hidden transition-opacity" onclick="closeAllPanels()"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+<style>
+    /* 1. KHUNG CODE KIỂU MAC (PREMIUM) */
+    .prose pre {
+        background-color: #161617 !important;
+        border-radius: 12px !important;
+        margin: 1.5rem 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+        border: 1px solid #27272a;
+    }
+    /* Thanh bar 3 chấm */
+    .prose pre::before {
+        content: '';
+        display: block;
+        background: #212122;
+        height: 32px;
+        border-bottom: 1px solid #27272a;
+        background-image: radial-gradient(circle at 12px 16px, #ff5f56 6px, transparent 6px),
+                          radial-gradient(circle at 28px 16px, #ffbd2e 6px, transparent 6px),
+                          radial-gradient(circle at 44px 16px, #27c93f 6px, transparent 6px);
+    }
+    .prose pre code {
+        display: block;
+        padding: 1rem 1.25rem !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 13px !important;
+        line-height: 1.6;
+    }
+
+    /* 2. THU NHỎ KHUNG THINKING (KHÔNG TRÀN NGANG) */
+    #thinking-panel {
+        max-width: fit-content; /* Chỉ rộng bằng nội dung */
+        min-width: 200px;
+    }
+    #thinking-content {
+        max-height: 300px;
+        overflow-y: auto;
+        font-size: 12px;
+        border-left: 2px solid #3b82f6;
+    }
+
+    /* 3. SỢI DÂY TIMELINE */
+    .timeline-line {
+        position: absolute;
+        left: 5px;
+        top: 12px;
+        bottom: 0;
+        width: 2px;
+        background: #27272a;
+        z-index: 0;
+    }
+
+    /* 4. THINKING CONTAINER & BADGE */
+    .thinking-container {
+        position: relative;
+        margin: 0.5rem 0;
+    }
+    .thinking-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 0.375rem;
+        color: #60a5fa;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .thinking-badge:hover {
+        background: rgba(59, 130, 246, 0.2);
+    }
+    .thinking-content {
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        background: rgba(39, 39, 42, 0.5);
+        border-left: 2px solid #3b82f6;
+        border-radius: 0 0.375rem 0.375rem 0;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        color: #a1a1aa;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    /* NOTEBOOK LLM PANEL STYLES */
+    #notebook-panel {
+        z-index: 30;
+    }
+    #notebook-panel.translate-x-full {
+        transform: translateX(100%);
+    }
+    #notebook-panel:not(.translate-x-full) {
+        transform: translateX(0);
+    }
+    #notebook-dropzone.drag-over {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+    }
+    .notebook-source-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(39, 39, 42, 0.5);
+        border: 1px solid rgba(63, 63, 70, 0.5);
+        border-radius: 0.5rem;
+        transition: all 0.2s;
+    }
+    .notebook-source-item:hover {
+        background: rgba(39, 39, 42, 0.8);
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+    .notebook-source-icon {
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 0.375rem;
+        color: #60a5fa;
+    }
+    .notebook-source-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .notebook-source-name {
+        font-size: 0.875rem;
+        color: #e4e4e7;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .notebook-source-meta {
+        font-size: 0.75rem;
+        color: #71717a;
+    }
+    .notebook-attachment-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Cấu hình Marked để tô màu code
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+
+        // 2. Render lại toàn bộ tin nhắn cũ khi F5
+        // Sếp lưu ý: Thay '.ai-message-content' bằng class CSS chứa text trả lời của sếp
+        const aiMessages = document.querySelectorAll('.response-content-class-cua-sep'); 
+        aiMessages.forEach(msg => {
+            const rawText = msg.innerHTML; // Lấy text thô
+            msg.innerHTML = marked.parse(rawText.replace(/&lt;/g, '<').replace(/&gt;/g, '>')); // Chuyển sang Markdown có màu
+        });
+    });
+</script>
+<script>
+let isStreaming = false;
+let currentConversationId = {{ conversation.id|default:'null' }};
+let isUserScrolling = false;
+let scrollTimeout;
+
+// Cấu hình thư viện Marked.js để tự động gọi Highlight.js tô màu code
+marked.setOptions({ 
+    breaks: true, 
+    gfm: true, 
+    headerIds: false,
+    highlight: function(code, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+            return hljs.highlight(code, { language: lang }).value;
+        }
+        return hljs.highlightAuto(code).value;
+    }
+});
+
+// Hàm chống vỡ HTML/CSS khi user gửi Code
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;");
+}
+
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px';
+    document.getElementById('send-button').disabled = textarea.value.trim().length === 0;
+}
+
+function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+    }
+}
+
+// ---------------------------------------------------------
+// UNIFIED RENDER ENGINE
+// ---------------------------------------------------------
+function renderAIResponse(container, rawText, sourcesJson, isStreaming = false) {
+    // Add citation markers if sources exist
+    if (sourcesJson && sourcesJson.length > 0) {
+        sourcesJson.forEach((source, index) => {
+            const citationRegex = new RegExp(`\\[${source.name}\\]|\\b${source.name}\\b`, 'gi');
+            rawText = rawText.replace(citationRegex, match => {
+                return `<span class="citation-link bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded cursor-pointer hover:bg-blue-500/40" onclick="previewSource(${index})" title="Xem nguồn: ${source.name}">[${index + 1}] ${match}</span>`;
+            });
+        });
+    }
+    
+    // Process thinking tags
+    const thinkingPattern = /<thinking>([\s\S]*?)<\/thinking>/g;
+    let thinkingBlocks = [];
+    let mainContent = rawText.replace(thinkingPattern, (match, content) => {
+        thinkingBlocks.push(content.trim());
+        return '';
+    }).trim();
+
+    if (!container.querySelector('.ai-response-wrapper')) {
+        container.innerHTML = `
+        <div class="max-w-3xl mx-auto w-full px-4 min-w-0 ai-response-wrapper">
+            <div class="relative flex flex-col gap-5">
+                <div class="absolute left-[5px] top-3 bottom-2 w-[2px] bg-zinc-800 z-0"></div>
+                
+                <div class="relative pl-8 hidden sources-panel">
+                    <div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-zinc-600 ring-4 ring-[#09090b] z-10"></div>
+                    <div class="text-xs text-zinc-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        Đã tham khảo nguồn
+                        <button class="btn-show-sources bg-blue-600 hover:bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded ml-2 transition-colors cursor-pointer" onclick="openSourcesSidebar(this)" data-sources='[]'>Xem Nguồn</button>
+                    </div>
+                </div>
+
+                <div class="relative pl-8 hidden thinking-panel">
+                    <div class="thinking-dot absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse ring-4 ring-[#09090b] z-10 transition-colors"></div>
+                    <div class="flex items-center gap-2 cursor-pointer w-max group" onclick="toggleThinking(this)">
+                        <div class="thinking-badge px-3 py-1.5 text-xs rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 group-hover:bg-zinc-700 transition-colors inline-flex items-center gap-2">
+                            <svg class="thinking-spinner w-3.5 h-3.5 animate-spin text-blue-400 block" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <svg class="thinking-check w-3.5 h-3.5 text-emerald-500 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span class="thinking-label tracking-wide">Đang suy luận...</span>
+                            <svg class="w-3.5 h-3.5 chevron-icon transition-transform rotate-180 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                    </div>
+                    <div class="thinking-content mt-3 text-xs text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap break-words overflow-x-auto border-l-2 border-zinc-600 bg-zinc-900/50 p-3 px-4 ml-1 transition-all rounded-r-lg max-h-72"></div>
+                </div>
+                
+                <div class="relative pl-8 response-panel">
+                    <div class="response-dot absolute left-0 top-1.5 w-3 h-3 rounded-full bg-zinc-700 ring-4 ring-[#09090b] z-10 transition-colors"></div>
+                    <div class="response-content prose prose-invert prose-zinc max-w-none text-zinc-300 text-sm leading-relaxed overflow-x-auto break-words min-w-0"></div>
+                </div>
+            </div>
+
+            <div class="utility-icons flex gap-3 mt-4 ml-8 text-zinc-500 transition-opacity duration-300">
+                <button onclick="copyMessage(this)" class="hover:text-zinc-300 p-1 rounded transition-colors" title="Copy message">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </button>
+            </div>
+        </div>`;
+    }
+
+    const wrapper = container.querySelector('.ai-response-wrapper');
+    const thinkingPanel = wrapper.querySelector('.thinking-panel');
+    const thinkingLabel = wrapper.querySelector('.thinking-label');
+    const thinkingContent = wrapper.querySelector('.thinking-content');
+    const responseContent = wrapper.querySelector('.response-content');
+    const sourcesPanel = wrapper.querySelector('.sources-panel');
+    const btnShowSources = wrapper.querySelector('.btn-show-sources');
+    const utilityIcons = wrapper.querySelector('.utility-icons');
+
+    if (!isStreaming) {
+        utilityIcons.classList.remove('opacity-0');
+        wrapper.querySelector('.response-dot').classList.replace('bg-emerald-500', 'bg-zinc-600');
+        wrapper.querySelector('.response-dot').classList.remove('animate-pulse');
+    } else {
+        utilityIcons.classList.add('opacity-0');
+        wrapper.querySelector('.response-dot').classList.replace('bg-zinc-700', 'bg-emerald-500');
+        wrapper.querySelector('.response-dot').classList.add('animate-pulse');
+    }
+    
+    let mainText = rawText || '';
+
+    // Extract inline sources from Gemini stream
+    const inlineSourcesMatch = mainText.match(/<sources>([\s\S]*?)<\/sources>/);
+    let finalSourcesJson = sourcesJson;
+    if (inlineSourcesMatch) { 
+        finalSourcesJson = inlineSourcesMatch[1];
+        if (!isStreaming) {
+            // Remove it so it doesn't break marked
+            mainText = mainText.replace(/<sources>[\s\S]*?(<\/sources>|$)/g, '');
+        }
+    }
+    // Also constantly strip it in streaming just in case
+    if (isStreaming) {
+        mainText = mainText.replace(/<sources>[\s\S]*?(<\/sources>|$)/g, '');
+    }
+
+    let responseText = mainText;
+
+    // 1. Always ensure sources are parsed but removed from text so Marked.js doesn't choke
+    if (finalSourcesJson && finalSourcesJson !== '[]' && finalSourcesJson !== 'None') {
+        try {
+            const sources = typeof finalSourcesJson === 'string' ? JSON.parse(finalSourcesJson) : finalSourcesJson;
+            if (sources.length > 0) {
+                sourcesPanel.classList.remove('hidden');
+                btnShowSources.setAttribute('data-sources', JSON.stringify(sources));
+            }
+        } catch(e){}
+    }
+    responseText = responseText.replace(/<sources>[\s\S]*?(<\/sources>|$)/g, '');
+
+    // 2. Separate Thinking vs Final Response safely
+    const thinkStart = responseText.indexOf('<thinking>');
+    const thinkEnd = responseText.indexOf('</thinking>');
+    let finalMainText = responseText;
+
+    if (thinkStart !== -1) {
+        thinkingPanel.classList.remove('hidden');
+        const spinner = wrapper.querySelector('.thinking-spinner');
+        const checkIcon = wrapper.querySelector('.thinking-check');
+        const dot = wrapper.querySelector('.thinking-dot');
+
+        if (thinkEnd !== -1) {
+            // Thinking complete
+            let thought = responseText.substring(thinkStart + 10, thinkEnd).trim();
+            thinkingContent.textContent = thought;
+            finalMainText = responseText.substring(thinkEnd + 11).trim();
+
+            thinkingLabel.textContent = 'Đã suy luận xong';
+            spinner.classList.add('hidden');
+            spinner.classList.remove('block');
+            checkIcon.classList.remove('hidden');
+            checkIcon.classList.add('block');
+            dot.classList.remove('animate-pulse');
+            dot.classList.replace('bg-blue-500', 'bg-zinc-600');
+
+            if (!isStreaming || !container.dataset.thinkCollapsed) {
+                thinkingContent.classList.add('hidden');
+                wrapper.querySelector('.chevron-icon').style.transform = '';
+                container.dataset.thinkCollapsed = "true";
+            }
+        } else {
+            // Still thinking
+            let thought = responseText.substring(thinkStart + 10).trim();
+            thinkingContent.textContent = thought;
+            finalMainText = ''; // Hide main response until thinking is done
+
+            thinkingLabel.textContent = 'Đang suy luận...';
+            spinner.classList.remove('hidden');
+            spinner.classList.add('block');
+            checkIcon.classList.add('hidden');
+            checkIcon.classList.remove('block');
+            thinkingContent.classList.remove('hidden');
+            wrapper.querySelector('.chevron-icon').style.transform = 'rotate(180deg)';
+        }
+    }
+
+    // 3. Render Markdown & Syntax Highlighting
+    if (finalMainText.length > 0) {
+        responseContent.innerHTML = marked.parse(finalMainText);
+
+        if (!isStreaming) {
+            responseContent.querySelectorAll('pre').forEach(pre => {
+                if (!pre.querySelector('.copy-btn')) {
+                    const btn = document.createElement('button');
+                    btn.className = 'copy-btn absolute top-2 right-2 text-zinc-400 hover:text-zinc-100 bg-zinc-800/80 p-1 px-2 rounded-md z-10 transition-colors text-[11px] font-sans border border-zinc-700/50 flex items-center gap-1 backdrop-blur-md cursor-pointer';
+                    btn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> <span class="btn-text">Copy</span>';
+                    btn.onclick = () => {
+                        navigator.clipboard.writeText(pre.querySelector('code').innerText);
+                        btn.querySelector('.btn-text').innerText = 'Copied!';
+                        setTimeout(() => btn.querySelector('.btn-text').innerText = 'Copy', 2000);
+                    };
+                    pre.style.position = 'relative';
+                    pre.appendChild(btn);
+                }
+            });
+
+            responseContent.querySelectorAll('pre code').forEach(block => {
+                if (!block.dataset.highlighted) {
+                    hljs.highlightElement(block);
+                    block.dataset.highlighted = "true";
+                }
+            });
+            if (typeof styleInlineCitations === 'function') styleInlineCitations(responseContent);
+        }
+    } else {
+        responseContent.innerHTML = '';
+    }
+
+    // ==========================================
+    // THE ULTIMATE FAILSAFE: FORCE CLOSE ALL SPINNERS
+    // ==========================================
+    if (!isStreaming) {
+        // Find ALL thinking panels within this specific message container
+        const allThinkingPanels = container.querySelectorAll('.thinking-panel');
+        
+        allThinkingPanels.forEach(panel => {
+            const spinner = panel.querySelector('.thinking-spinner');
+            const checkIcon = panel.querySelector('.thinking-check');
+            const dot = panel.querySelector('.thinking-dot');
+            const label = panel.querySelector('.thinking-label');
+            const chevron = panel.querySelector('.chevron-icon');
+            
+            // Forcefully change UI to "Done" state
+            if (spinner) { spinner.classList.add('hidden'); spinner.classList.remove('block'); }
+            if (checkIcon) { checkIcon.classList.remove('hidden'); checkIcon.classList.add('block'); }
+            if (dot) { dot.classList.remove('animate-pulse'); dot.classList.replace('bg-blue-500', 'bg-zinc-600'); }
+            if (label) label.textContent = 'Đã suy luận xong';
+            
+            // Auto-collapse if it hasn't been collapsed yet
+            const thinkingContent = panel.querySelector('.thinking-content');
+            if (thinkingContent && !container.dataset.thinkCollapsed) {
+                thinkingContent.classList.add('hidden');
+                if (chevron) chevron.style.transform = '';
+            }
+        });
+        
+        // Mark container as collapsed so user can manually toggle it later
+        container.dataset.thinkCollapsed = 'true';
+    }
+}
+
+// Render ALL current nodes on page load OR chat switch
+function renderAllMessages() {
+    document.querySelectorAll('.ai-message-container').forEach(container => {
+        const raw = container.getAttribute('data-raw') || '';
+        const sources = container.getAttribute('data-sources') || '[]';
+        renderAIResponse(container, raw, sources, false);
+    });
+}
+
+// UI State Updates
+function smartScroll() {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!isUserScrolling) chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+document.getElementById('chat-messages')?.addEventListener('scroll', function() {
+    isUserScrolling = true;
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+        if (this.scrollHeight - this.scrollTop - this.clientHeight < 50) isUserScrolling = false;
+    }, 150);
+});
+
+function copyMessage(btn) {
+    const wrapper = btn.closest('.ai-response-wrapper');
+    const text = wrapper.querySelector('.response-content').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        btn.innerHTML = '<svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+        setTimeout(() => btn.innerHTML = '<svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>', 2000);
+    });
+}
+
+function setInput(text) {
+    const input = document.getElementById('message-input');
+    input.value = text;
+    autoResize(input);
+    input.focus();
+}
+
+function toggleThinking(header) {
+    const content = header.nextElementSibling;
+    const chevron = header.querySelector('.chevron-icon');
+    content.classList.toggle('hidden');
+    chevron.style.transform = content.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
+
+function openSourcesSidebar(btn) {
+    const sidebar = document.getElementById('sources-sidebar');
+    const content = document.getElementById('sources-sidebar-content');
+    sidebar.classList.remove('translate-x-full');
+    
+    try {
+        const sourcesStr = btn.getAttribute('data-sources');
+        const sources = typeof sourcesStr === 'string' ? JSON.parse(sourcesStr) : sourcesStr;
+        let html = '';
+        sources.forEach(s => {
+            const displayTitle = s.title || s.url;
+            let domain = 'web';
+            try { domain = new URL(s.url).hostname.replace('www.', ''); } catch(e){}
+            html += `<a href="${s.url}" target="_blank" class="block bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 rounded-xl p-3 transition-colors group">
+                <div class="flex items-start gap-3">
+                    <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" class="w-5 h-5 rounded mt-0.5" onerror="this.style.display='none'">
+                    <div>
+                        <div class="text-sm text-zinc-200 font-medium group-hover:text-blue-400 transition-colors line-clamp-2">${displayTitle}</div>
+                        <div class="text-xs text-zinc-500 mt-1">${domain}</div>
+                    </div>
+                </div>
+            </a>`;
+        });
+        content.innerHTML = html;
+    } catch(e) {
+        content.innerHTML = '<p class="text-zinc-500 text-sm">Nguồn không hợp lệ.</p>';
+    }
+}
+
+function closeSourcesSidebar() {
+    document.getElementById('sources-sidebar').classList.add('translate-x-full');
+}
+
+// Conversation Management
+function createNewChat(event) {
+    if (event) event.preventDefault();
+    currentConversationId = null;
+    isStreaming = false;
+    
+    document.getElementById('chat-messages').innerHTML = '';
+    
+    fetch('/create-chat/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    }).then(r => r.json()).then(data => {
+        currentConversationId = data.conversation_id;
+        const list = document.getElementById('conversations-list');
+        const noConvs = document.getElementById('no-conversations');
+        if (noConvs) noConvs.remove();
+        
+        const div = document.createElement('div');
+        div.id = `conv-${data.conversation_id}`;
+        div.className = 'sidebar-item group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-zinc-300 mb-1 active';
+        div.innerHTML = `<a href="/chat/${data.conversation_id}/" onclick="return loadConversation(event, ${data.conversation_id})" class="flex-1 flex items-center space-x-2 min-w-0"><svg class="w-4 h-4 text-zinc-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg><span class="truncate conv-title">${data.title}</span></a><button onclick="deleteConversation(event, ${data.conversation_id})" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 hover:text-red-400 rounded transition-all" title="Delete conversation"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>`;
+        list.insertBefore(div, list.firstChild);
+        
+        document.getElementById('conversation-id').value = data.conversation_id;
+        document.getElementById('chat-messages').innerHTML = '<div class="flex flex-col items-center justify-center h-full text-center px-4"><div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></div><h2 class="text-2xl font-semibold text-zinc-100 mb-2">What can I help you with?</h2><p class="text-zinc-500 mb-8">Ask me anything. I will search, reason, and provide sources.</p></div>';
+        
+        document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        div.classList.add('active');
+        history.pushState({}, '', `/chat/${data.conversation_id}/`);
+        document.title = "New Chat - Nova AI";
+    });
+    return false;
+}
+
+function loadConversation(event, convId) {
+    if (event) event.preventDefault();
+    showStatus('Loading conversation...');
+    fetch(`/chat/${convId}/`, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+    .then(r => r.text())
+    .then(html => {
+        hideStatus();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newMessages = doc.getElementById('chat-messages');
+        if (newMessages) {
+            document.getElementById('chat-messages').innerHTML = newMessages.innerHTML;
+            document.getElementById('conversation-id').value = convId;
+            currentConversationId = convId;
+            
+            // Re-render UI properly using the new logic
+            renderAllMessages();
+            smartScroll();
+        }
+        document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(`conv-${convId}`)?.classList.add('active');
+        history.pushState({}, '', `/chat/${convId}/`);
+        
+        const cTitle = document.getElementById(`conv-${convId}`)?.querySelector('.conv-title')?.textContent;
+        if(cTitle) document.title = `${cTitle} - Nova AI`;
+    }).catch(() => {
+        hideStatus();
+        alert('Failed to load conversation');
+    });
+    return false;
+}
+
+function deleteConversation(event, convId) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!confirm('Bạn có chắc muốn xóa?')) return;
+    
+    fetch(`/chat/${convId}/delete/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            document.getElementById(`conv-${data.conversation_id}`)?.remove();
+            if (currentConversationId === data.conversation_id) {
+                createNewChat(null);
+            }
+        }
+    });
+}
+
+function showStatus(text) {
+    const indicator = document.getElementById('status-indicator');
+    if (indicator) {
+        document.getElementById('status-text').textContent = text;
+        indicator.classList.remove('hidden');
+    }
+}
+function hideStatus() {
+    document.getElementById('status-indicator')?.classList.add('hidden');
+}
+
+function sendMessage(event) {
+    event.preventDefault();
+    const input = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const message = input.value.trim();
+    
+    // Allow sending if there's message OR quick upload files
+    if ((!message && quickFilesArray.length === 0) || isStreaming) return;
+    
+    if (window.eventSource) window.eventSource.close();
+
+    const chatMessages = document.getElementById('chat-messages');
+    const emptyState = chatMessages.querySelector('.flex-col.items-center.text-center');
+    if (emptyState) chatMessages.innerHTML = '';
+
+    // Build display message (show file names if no text)
+    let displayMessage = message;
+    if (!message && quickFilesArray.length > 0) {
+        displayMessage = `[Đính kèm ${quickFilesArray.length} file]`;
+    }
+    
+    const safeMessage = escapeHtml(displayMessage).replace(/\\n/g, '<br>');
+    const userDiv = document.createElement('div');
+    userDiv.className = 'flex justify-end mb-8 w-full';
+    userDiv.innerHTML = `<div class="max-w-3xl mx-auto w-full px-4 flex justify-end min-w-0">
+            <div class="bg-zinc-800 text-zinc-100 rounded-2xl px-4 py-2 text-sm leading-relaxed max-w-[85%] break-words overflow-x-auto">${safeMessage}</div>
+        </div>`;
+    chatMessages.appendChild(userDiv);
+    smartScroll();
+
+    const formData = new FormData(document.getElementById('chat-form'));
+    const modelSelector = document.getElementById('model-selector');
+    if (modelSelector) formData.append('model_id', modelSelector.value);
+    
+    // Add quick upload files content to message
+    let fullMessage = message;
+    if (quickFilesArray.length > 0) {
+        let filesContent = '\n=== FILE ĐÍNH KÈM ===\n';
+        quickFilesArray.forEach((file, i) => {
+            filesContent += `\n[File ${i+1}] ${file.name}\n`;
+            if (file.extracted_text && file.extracted_text.length > 10) {
+                filesContent += file.extracted_text.substring(0, 15000) + '\n';
+            } else {
+                filesContent += '[File được upload lên Gemini]\n';
+            }
+        });
+        filesContent += '\n=== END FILES ===\n';
+        fullMessage = filesContent + '\n' + (message || 'Hãy đọc và phân tích các file đính kèm.');
+        
+        // Add file metadata for backend
+        formData.append('quick_files', JSON.stringify(quickFilesArray.map(f => ({
+            name: f.name,
+            type: f.type,
+            gemini_file_uri: f.gemini_file_uri
+        }))));
+        
+        console.log('[sendMessage] Added quick upload files:', quickFilesArray.length);
+    }
+    
+    // Add notebook sources to message if available
+    if (notebookContext.length > 0) {
+        let notebookContent = '\n=== NOTEBOOK LLM SOURCES ===\n';
+        notebookContext.forEach((source, i) => {
+            notebookContent += `\n[Source ${i+1}] ${source.name}\n`;
+            if (source.extracted_text) {
+                notebookContent += source.extracted_text.substring(0, 10000) + '\n';
+            }
+        });
+        notebookContent += '\n=== END NOTEBOOK SOURCES ===\n';
+        
+        fullMessage = notebookContent + '\n' + fullMessage;
+        console.log('[sendMessage] Added notebook sources:', notebookContext.length, 'files');
+    }
+    
+    formData.set('message', fullMessage);
+
+    input.value = '';
+    input.style.height = 'auto';
+    sendButton.disabled = true;
+    isStreaming = true;
+    
+    // Clear quick upload files after sending
+    clearQuickUploadFiles();
+    
+    // Auto Titling logic check
+    const isFirstMessage = !currentConversationId || document.querySelectorAll('.ai-message-container').length === 0;
+
+    const aiContainer = document.createElement('div');
+    aiContainer.className = 'ai-message-container flex justify-start mb-8 w-full';
+    chatMessages.appendChild(aiContainer);
+
+    showStatus('Nova is thinking...');
+    
+    fetch('/stream/', {
+        method: 'POST',
+        body: formData,
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    }).then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+
+        function finishStream() {
+            isStreaming = false;
+            renderAIResponse(aiContainer, fullText, undefined, false);
+            hideStatus();
+            input.disabled = false;
+            sendButton.disabled = false;
+            input.focus();
+
+            if (isFirstMessage && currentConversationId) {
+                fetch('/auto-title/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        conversation_id: currentConversationId,
+                        message: message,
+                        model_id: modelSelector ? modelSelector.value : 'gemini-1.5-flash'
+                    }),
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json'
+                    }
+                }).then(r => r.json()).then(data => {
+                    if (data.title) {
+                        const convEl = document.getElementById(`conv-${data.conversation_id}`);
+                        if (convEl) convEl.querySelector('.conv-title').textContent = data.title;
+                        document.title = `${data.title} - Nova AI`;
+                    }
+                });
+            }
+        }
+
+        let lastRenderTime = 0;
+        function read() {
+            reader.read().then(({ done, value }) => {
+                if (done) { finishStream(); return; }
+                const chunk = decoder.decode(value, { stream: true });
+                
+                // Split by actual newline character
+                const lines = chunk.split('\n');
+                let hasData = false;
+                
+                lines.forEach(line => {
+                    if (line.includes('[DONE]')) return; // Aggressively catch [DONE] anywhere
+                    
+                    if (line.trim().startsWith('data:')) {
+                        // Extract data safely
+                        let data = line.substring(line.indexOf('data:') + 5).trim();
+                        if (data) {
+                            // Unescape explicit newlines from backend
+                            fullText += data.replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+                            hasData = true;
+                        }
+                    }
+                });
+                
+                if (hasData) {
+                    const now = Date.now();
+                    // Throttle heavy DOM updates to ~20 FPS (50ms)
+                    if (now - lastRenderTime > 50) {
+                        renderAIResponse(aiContainer, fullText, null, true);
+                        smartScroll();
+                        lastRenderTime = now;
+                    }
+                }
+                read();
+            }).catch(() => finishStream());
+        }
+        read();
+    }).catch(() => {
+        isStreaming = false;
+        input.disabled = false;
+        sendButton.disabled = false;
+        hideStatus();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Dịch toàn bộ tin nhắn cũ
+    renderAllMessages();
+
+    // 2. Cuộn xuống cuối để thấy tin nhắn mới nhất
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // 3. Lấy danh sách model AI
+    fetchGeminiModels();
+});
+
+function fetchGeminiModels() {
+    const modelSelector = document.getElementById('model-selector');
+    const statusDot = document.getElementById('api-status-dot');
+    const statusText = document.getElementById('api-status-text');
+    const sendButton = document.getElementById('send-button');
+    const userInput = document.getElementById('message-input');
+    
+    if (!modelSelector) return;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    fetch('/api/get-gemini-models/', { signal: controller.signal })
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success' && data.models.length > 0) {
+                modelSelector.innerHTML = '';
+                data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.name;
+                    modelSelector.appendChild(option);
+                });
+                modelSelector.disabled = false;
+                if (sendButton) sendButton.disabled = false;
+                if (userInput) userInput.disabled = false;
+                
+                statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
+                statusDot.classList.remove('animate-pulse');
+                statusText.textContent = 'API Connected';
+                statusText.className = 'text-green-500 text-xs';
+                
+                const savedModel = localStorage.getItem('nova_model');
+                const flashModel = data.models.find(m => m.id === 'gemini-1.5-flash');
+                
+                if (savedModel && data.models.find(m => m.id === savedModel)) {
+                    modelSelector.value = savedModel;
+                } else if (flashModel) {
+                    modelSelector.value = 'gemini-1.5-flash';
+                    localStorage.setItem('nova_model', 'gemini-1.5-flash');
+                }
+                
+                modelSelector.addEventListener('change', function() {
+                    localStorage.setItem('nova_model', this.value);
+                });
+            } else {
+                throw new Error(data.message || 'No models available');
+            }
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            console.error('[ERROR] Failed to fetch Gemini models:', error);
+            
+            modelSelector.innerHTML = '<option value="gemini-1.5-flash">gemini-1.5-flash (fallback)</option>';
+            modelSelector.disabled = false;
+            
+            if (sendButton) sendButton.disabled = false;
+            if (userInput) userInput.disabled = false;
+            
+            const isQuotaError = error.message && (error.message.includes('quota') || error.message.includes('exhausted') || error.message.includes('429'));
+            const isTimeout = error.name === 'AbortError';
+            
+            statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+            statusDot.classList.remove('animate-pulse');
+            
+            if (isTimeout) {
+                statusText.textContent = 'API Timeout - Using Fallback';
+            } else if (isQuotaError) {
+                statusText.textContent = 'API Quota Exceeded';
+            } else {
+                statusText.textContent = 'API Offline / Limited';
+            }
+            statusText.className = 'text-red-500 text-xs';
+            localStorage.setItem('nova_model', 'gemini-1.5-flash');
+        })
+        .finally(() => {
+            if (modelSelector) modelSelector.disabled = false;
+            if (sendButton) sendButton.disabled = false;
+            if (userInput) userInput.disabled = false;
+        });
+}
+
+function styleInlineCitations(container) {
+    if (!container) return;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    const textNodes = [];
+    let node;
+    while (node = walker.nextNode()) {
+        if (node.textContent.match(/\[\d+\]/)) textNodes.push(node);
+    }
+    
+    textNodes.forEach(textNode => {
+        const parent = textNode.parentNode;
+        const content = textNode.textContent;
+        const parts = content.split(/(\[\d+\])/g);
+        
+        if (parts.length > 1) {
+            const fragment = document.createDocumentFragment();
+            parts.forEach(part => {
+                if (part.match(/\[\d+\]/)) {
+                    const cite = document.createElement('span');
+                    cite.className = 'inline-citation text-blue-400 bg-blue-900/30 px-1 rounded-sm text-[10px] align-super cursor-pointer hover:bg-blue-800/50 transition-colors';
+                    cite.textContent = part;
+                    fragment.appendChild(cite);
+                } else {
+                    fragment.appendChild(document.createTextNode(part));
+                }
+            });
+            parent.replaceChild(fragment, textNode);
+        }
+    });
+}
+
+function resetUI() {
+    window.location.reload();
+}
+
+// TASK: Real-time DateTime Display (Vietnam timezone)
+function updateDateTime() {
+    const now = new Date();
+    const hcmTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
+    const timeStr = hcmTime.toLocaleTimeString('vi-VN', {hour12: false});
+    const dateStr = hcmTime.toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'});
+    const display = document.getElementById('datetime-display');
+    if (display) {
+        display.textContent = `${timeStr} • ${dateStr}`;
+    }
+}
+setInterval(updateDateTime, 1000);
+updateDateTime(); // Initial call
+
+// TASK: Notebook LLM - Attachment Menu Toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const attachmentBtn = document.getElementById('attachment-btn');
+    const attachmentMenu = document.getElementById('attachment-menu');
+    const fileUpload = document.getElementById('file-upload');
+    
+    if (attachmentBtn && attachmentMenu) {
+        attachmentBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            attachmentMenu.classList.toggle('hidden');
+        });
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!attachmentMenu.contains(e.target) && e.target !== attachmentBtn) {
+                attachmentMenu.classList.add('hidden');
+            }
+        });
+    }
+    
+    // File Upload Handler
+    if (fileUpload) {
+        fileUpload.addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleFileUpload(files);
+            }
+        });
+    }
+});
+
+// Handle file upload and add to notebook context - WITH API
+let notebookContext = []; // Store file contents
+
+async function handleFileUpload(files) {
+    const input = document.getElementById('message-input');
+    const attachmentMenu = document.getElementById('attachment-menu');
+    
+    // Create FormData for API upload
+    const formData = new FormData();
+    Array.from(files).forEach(file => {
+        formData.append('files', file);
+    });
+    
+    try {
+        // Upload to backend API
+        const response = await fetch('/api/notebook/upload/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Fetch the sources from server
+            await loadNotebookSources();
+            
+            // Show success notification
+            showNotification(`Đã tải ${result.sources.length} file vào Notebook LLM`, 'success');
+        } else {
+            showNotification('Lỗi upload: ' + result.message, 'error');
+        }
+    } catch (error) {
+        console.error('[Notebook LLM] Upload error:', error);
+        showNotification('Lỗi kết nối khi upload file', 'error');
+    }
+    
+    if (attachmentMenu) attachmentMenu.classList.add('hidden');
+}
+
+// Load notebook sources from server
+async function loadNotebookSources() {
+    try {
+        const response = await fetch('/api/notebook/sources/');
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            notebookContext = result.sources.map(s => ({
+                name: s.name,
+                type: s.type,
+                size: s.size,
+                content: s.preview || s.extracted_text || '[Content loaded from server]',
+                extracted_text: s.extracted_text || s.preview || ''
+            }));
+            
+            // Update UI indicator
+            updateNotebookIndicator(result.count);
+        }
+    } catch (error) {
+        console.error('[Notebook LLM] Load error:', error);
+    }
+}
+
+// Update notebook indicator in chat input
+function updateNotebookIndicator(count) {
+    const input = document.getElementById('message-input');
+    const indicator = document.getElementById('notebook-indicator');
+    
+    if (count > 0) {
+        if (!indicator) {
+            const newIndicator = document.createElement('span');
+            newIndicator.id = 'notebook-indicator';
+            newIndicator.className = 'text-xs text-blue-400 flex items-center gap-1 mt-1';
+            newIndicator.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> ${count} sources`;
+            input.parentElement.parentElement.appendChild(newIndicator);
+        } else {
+            indicator.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> ${count} sources`;
+        }
+    } else if (indicator) {
+        indicator.remove();
+    }
+}
+
+// Show notification helper
+function showNotification(message, type = 'info') {
+    const colors = {
+        success: 'bg-emerald-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500'
+    };
+    
+    const notif = document.createElement('div');
+    notif.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in`;
+    notif.textContent = message;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => {
+        notif.remove();
+    }, 3000);
+}
+
+// Get CSRF cookie helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Load notebook sources on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadNotebookSources();
+});
+
+// NOTEBOOK LLM PANEL FUNCTIONS
+function openNotebookPanel() {
+    const panel = document.getElementById('notebook-panel');
+    const overlay = document.getElementById('panel-overlay');
+    panel.classList.remove('translate-x-full');
+    overlay.classList.remove('hidden');
+    setTimeout(() => overlay.classList.add('opacity-100'), 10);
+    loadNotebookSourcesWithCheckboxes(); // Use checkbox mode
+}
+
+function closeNotebookPanel() {
+    const panel = document.getElementById('notebook-panel');
+    const overlay = document.getElementById('panel-overlay');
+    panel.classList.add('translate-x-full');
+    overlay.classList.remove('opacity-100');
+    setTimeout(() => overlay.classList.add('hidden'), 300);
+}
+
+function closeAllPanels() {
+    closeNotebookPanel();
+    closeSourcesSidebar();
+}
+
+// Global array for quick upload files (direct to chat)
+let quickFilesArray = [];
+
+// Upload files directly to chat (quick upload)
+async function uploadFilesToChat(files) {
+    if (!files || files.length === 0) return;
+    
+    const formData = new FormData();
+    Array.from(files).forEach(file => {
+        formData.append('files', file);
+    });
+    
+    showNotification('⏳ Đang xử lý file...', 'info');
+    
+    try {
+        const response = await fetch('/api/notebook/upload/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Add files directly to chat chips
+            result.sources.forEach(source => {
+                const fileData = {
+                    name: source.name,
+                    type: source.type,
+                    size: source.size,
+                    extracted_text: source.extracted_text || source.preview || '',
+                    gemini_file_uri: source.gemini_file_uri
+                };
+                quickFilesArray.push(fileData);
+                addFileChipToChat(fileData);
+            });
+            
+            showNotification(`✅ Đã thêm ${result.sources.length} file vào chat`, 'success');
+            console.log('[Quick Upload] Files added to chat:', quickFilesArray);
+        } else {
+            showNotification('❌ ' + result.message, 'error');
+        }
+    } catch (error) {
+        console.error('[Quick Upload] Error:', error);
+        showNotification('❌ Lỗi kết nối khi upload', 'error');
+    }
+}
+
+// Add file chip to chat input
+function addFileChipToChat(fileData) {
+    const chipsContainer = document.getElementById('chat-file-chips');
+    if (!chipsContainer) return;
+    
+    const chip = document.createElement('div');
+    chip.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-full text-sm border border-blue-500/30';
+    chip.innerHTML = `
+        <span class="font-medium">#${fileData.name}</span>
+        <button onclick="removeQuickFile('${fileData.name}')" class="hover:text-red-400 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    `;
+    
+    chipsContainer.appendChild(chip);
+    chipsContainer.classList.remove('hidden');
+}
+
+// Remove file from quick upload
+function removeQuickFile(filename) {
+    quickFilesArray = quickFilesArray.filter(f => f.name !== filename);
+    renderQuickFileChips();
+    console.log('[Quick Upload] Removed file, remaining:', quickFilesArray.length);
+}
+
+// Render all quick file chips
+function renderQuickFileChips() {
+    const chipsContainer = document.getElementById('chat-file-chips');
+    if (!chipsContainer) return;
+    
+    chipsContainer.innerHTML = '';
+    
+    if (quickFilesArray.length === 0) {
+        chipsContainer.classList.add('hidden');
+        return;
+    }
+    
+    quickFilesArray.forEach(fileData => {
+        const chip = document.createElement('div');
+        chip.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-full text-sm border border-blue-500/30 cursor-pointer hover:bg-blue-500/30 transition-colors';
+        chip.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span class="font-medium">#${fileData.name}</span>
+            <button onclick="event.stopPropagation(); removeQuickFile('${fileData.name}')" class="hover:text-red-400 transition-colors ml-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        `;
+        chip.onclick = () => previewQuickFile(fileData);
+        chipsContainer.appendChild(chip);
+    });
+    
+    chipsContainer.classList.remove('hidden');
+}
+
+// Preview quick file content
+function previewQuickFile(fileData) {
+    const modal = document.getElementById('file-preview-modal');
+    const title = document.getElementById('preview-title');
+    const content = document.getElementById('preview-body');
+    
+    title.textContent = fileData.name;
+    
+    let text = fileData.extracted_text || '[Không có nội dung]';
+    if (text.length > 5000) {
+        text = text.substring(0, 5000) + '\n\n[... Còn ' + (text.length - 5000) + ' ký tự ...]';
+    }
+    
+    content.textContent = text;
+    modal.classList.remove('hidden');
+}
+
+// Clear quick upload files
+function clearQuickUploadFiles() {
+    quickFilesArray = [];
+    renderQuickFileChips();
+}
+
+// Handle file upload in Notebook panel (checkbox selection mode)
+async function handleNotebookFileUpload(files) {
+    if (!files || files.length === 0) return;
+    
+    const dropzone = document.getElementById('notebook-dropzone');
+    dropzone.classList.add('border-blue-500', 'bg-blue-500/10');
+    
+    const formData = new FormData();
+    Array.from(files).forEach(file => {
+        formData.append('files', file);
+    });
+    
+    try {
+        const response = await fetch('/api/notebook/upload/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            showNotification(`✅ Đã tải ${result.sources.length} file vào thư viện`, 'success');
+            await loadNotebookSourcesWithCheckboxes();
+        } else {
+            showNotification('❌ ' + result.message, 'error');
+        }
+    } catch (error) {
+        console.error('[Notebook LLM] Upload error:', error);
+        showNotification('❌ Lỗi kết nối khi upload', 'error');
+    } finally {
+        dropzone.classList.remove('border-blue-500', 'bg-blue-500/10');
+    }
+}
+
+// Load and display notebook sources
+async function loadNotebookSources() {
+    try {
+        const response = await fetch('/api/notebook/sources/');
+        const result = await response.json();
+        
+        const listContainer = document.getElementById('notebook-sources-list');
+        const emptyState = document.getElementById('notebook-empty-state');
+        const fileCount = document.getElementById('notebook-file-count');
+        const attachBtn = document.getElementById('attach-notebook-btn');
+        
+        if (result.status === 'success') {
+            notebookContext = result.sources.map(s => ({
+                name: s.name,
+                type: s.type,
+                size: s.size,
+                content: s.extracted_text || s.preview || '[Không có nội dung]',
+                extracted_text: s.extracted_text || s.preview || ''
+            }));
+            
+            // Update count
+            if (fileCount) fileCount.textContent = `${result.count} sources`;
+            
+            // Update attach button
+            if (attachBtn) {
+                attachBtn.disabled = result.count === 0;
+                if (result.count > 0) {
+                    attachBtn.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Gắn ${result.count} file vào chat</span>
+                    `;
+                } else {
+                    attachBtn.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Gắn vào khung chat</span>
+                    `;
+                }
+            }
+            
+            // Update list
+            if (result.count === 0) {
+                if (emptyState) emptyState.style.display = 'block';
+                // Remove all source items
+                const items = listContainer.querySelectorAll('.notebook-source-item');
+                items.forEach(item => item.remove());
+            } else {
+                if (emptyState) emptyState.style.display = 'none';
+                
+                // Clear existing items
+                const items = listContainer.querySelectorAll('.notebook-source-item');
+                items.forEach(item => item.remove());
+                
+                // Add new items
+                result.sources.forEach((source, index) => {
+                    const item = createSourceItem(source, index);
+                    listContainer.appendChild(item);
+                });
+            }
+            
+            // Update indicator in chat
+            updateNotebookIndicator(result.count);
+        }
+    } catch (error) {
+        console.error('[Notebook LLM] Load error:', error);
+    }
+}
+
+// Store selected sources for real-time preview
+let selectedNotebookSources = new Set();
+
+// Create source item with checkbox for selection - REALTIME PREVIEW
+function createSourceItemWithCheckbox(source, index) {
+    const div = document.createElement('div');
+    div.className = 'notebook-source-item animate-fade-in flex items-center gap-2 p-2 hover:bg-zinc-800/50 rounded-lg transition-colors cursor-pointer';
+    div.style.animationDelay = `${index * 0.1}s`;
+    div.dataset.index = index;
+    div.dataset.name = source.name;
+    
+    const icon = getFileIcon(source.type);
+    const hasData = (source.extracted_text || source.preview || '').length > 10;
+    const dataStatus = hasData ? '' : '<span class="text-amber-400 text-xs ml-1">⚠️ Không đọc được</span>';
+    
+    div.innerHTML = `
+        <input type="checkbox" class="notebook-file-checkbox w-4 h-4 rounded border-zinc-600 text-blue-500 focus:ring-blue-500 bg-zinc-700 cursor-pointer" data-index="${index}">
+        <div class="notebook-source-icon flex-shrink-0">${icon}</div>
+        <div class="notebook-source-info flex-1 min-w-0">
+            <div class="notebook-source-name text-sm truncate" title="${source.name}">${source.name}${dataStatus}</div>
+            <div class="notebook-source-meta text-xs text-zinc-500">${formatFileSize(source.size)}</div>
+        </div>
+        <button onclick="event.stopPropagation(); previewSource(${index})" class="p-1 hover:bg-blue-500/20 rounded text-zinc-500 hover:text-blue-400 transition-colors flex-shrink-0" title="Xem trước">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        </button>
+        <button onclick="event.stopPropagation(); removeSource(${index})" class="p-1 hover:bg-red-500/20 rounded text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0" title="Xóa">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    `;
+    
+    const checkbox = div.querySelector('.notebook-file-checkbox');
+    
+    // Click on item to toggle checkbox and show preview
+    div.addEventListener('click', (e) => {
+        if (e.target.type !== 'checkbox' && !e.target.closest('button')) {
+            checkbox.checked = !checkbox.checked;
+            handleCheckboxChange(index, checkbox.checked, source);
+        }
+    });
+    
+    // Checkbox change - REALTIME PREVIEW
+    checkbox.addEventListener('change', (e) => {
+        handleCheckboxChange(index, e.target.checked, source);
+    });
+    
+    return div;
+}
+
+// Handle checkbox change - Update preview panel in real-time
+function handleCheckboxChange(index, isChecked, source) {
+    if (isChecked) {
+        selectedNotebookSources.add(index);
+        showSourcePreviewRealtime(source);
+    } else {
+        selectedNotebookSources.delete(index);
+        hideSourcePreviewRealtime();
+    }
+    updateAttachButtonState();
+}
+
+// Show source preview in real-time when checked
+function showSourcePreviewRealtime(source) {
+    const panel = document.getElementById('file-preview-panel');
+    const title = document.getElementById('preview-panel-title');
+    const content = document.getElementById('preview-panel-content');
+    
+    if (!panel || !title || !content) return;
+    
+    title.textContent = `📄 ${source.name}`;
+    
+    const previewText = source.extracted_text || source.preview || '[Không có nội dung trích xuất]';
+    const truncatedText = previewText.length > 3000 
+        ? previewText.substring(0, 3000) + '\n\n... [Còn ' + (previewText.length - 3000) + ' ký tự]' 
+        : previewText;
+    
+    content.innerHTML = `
+        <div class="text-xs text-zinc-400 mb-2 flex items-center gap-2">
+            <span class="px-2 py-0.5 bg-blue-500/20 rounded">${source.type || 'unknown'}</span>
+            <span>${formatFileSize(source.size)}</span>
+            <span class="text-green-400">✓ Đang tham khảo</span>
+        </div>
+        <pre class="text-sm text-zinc-300 whitespace-pre-wrap font-mono bg-zinc-900/50 p-3 rounded-lg max-h-[60vh] overflow-y-auto">${escapeHtml(truncatedText)}</pre>
+    `;
+    
+    panel.classList.remove('hidden');
+}
+
+// Hide preview when unchecked
+function hideSourcePreviewRealtime() {
+    // Only hide if no sources selected
+    if (selectedNotebookSources.size === 0) {
+        const panel = document.getElementById('file-preview-panel');
+        if (panel) panel.classList.add('hidden');
+    } else {
+        // Show the last selected source
+        const sources = window.notebookSourcesList || [];
+        const lastIndex = Math.max(...selectedNotebookSources);
+        if (sources[lastIndex]) {
+            showSourcePreviewRealtime(sources[lastIndex]);
+        }
+    }
+}
+
+// Preview specific source by index
+function previewSource(index) {
+    const sources = window.notebookSourcesList || [];
+    if (sources[index]) {
+        showSourcePreviewRealtime(sources[index]);
+        // Also check the checkbox
+        const checkbox = document.querySelector(`.notebook-file-checkbox[data-index="${index}"]`);
+        if (checkbox && !checkbox.checked) {
+            checkbox.checked = true;
+            handleCheckboxChange(index, true, sources[index]);
+        }
+    }
+}
+
+// Load sources with checkboxes
+async function loadNotebookSourcesWithCheckboxes() {
+    try {
+        const response = await fetch('/api/notebook/sources/');
+        const result = await response.json();
+        
+        const listContainer = document.getElementById('notebook-sources-list');
+        const emptyState = document.getElementById('notebook-empty-state');
+        const attachBtn = document.getElementById('attach-notebook-btn');
+        
+        if (result.status === 'success') {
+            // Store in global for later use
+            window.notebookSourcesList = result.sources;
+            
+            // Update UI
+            if (result.count === 0) {
+                if (emptyState) emptyState.style.display = 'block';
+                listContainer.querySelectorAll('.notebook-source-item').forEach(el => el.remove());
+                if (attachBtn) {
+                    attachBtn.disabled = true;
+                    attachBtn.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>Chọn file để gắn</span>
+                    `;
+                }
+            } else {
+                if (emptyState) emptyState.style.display = 'none';
+                
+                // Clear and rebuild list
+                listContainer.innerHTML = '';
+                listContainer.appendChild(emptyState);
+                
+                result.sources.forEach((source, index) => {
+                    const item = createSourceItemWithCheckbox(source, index);
+                    listContainer.appendChild(item);
+                });
+                
+                if (attachBtn) {
+                    attachBtn.disabled = true;
+                    attachBtn.onclick = attachSelectedFilesToChat;
+                }
+            }
+            
+            // Hide file preview panel
+            hideFilePreviewPanel();
+        }
+    } catch (error) {
+        console.error('[Notebook LLM] Load error:', error);
+    }
+}
+
+// Update attach button based on selection
+function updateAttachButtonState() {
+    const checkboxes = document.querySelectorAll('.notebook-file-checkbox:checked');
+    const attachBtn = document.getElementById('attach-notebook-btn');
+    const count = checkboxes.length;
+    
+    if (attachBtn) {
+        attachBtn.disabled = count === 0;
+        if (count > 0) {
+            attachBtn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>Gắn ${count} file vào chat</span>
+            `;
+        } else {
+            attachBtn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>Chọn file để gắn</span>
+            `;
+        }
+    }
+}
+
+// Attach selected files to chat
+function attachSelectedFilesToChat() {
+    const checkboxes = document.querySelectorAll('.notebook-file-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    const sources = window.notebookSourcesList || [];
+    let attachedCount = 0;
+    
+    checkboxes.forEach(checkbox => {
+        const index = parseInt(checkbox.dataset.index);
+        const source = sources[index];
+        if (source) {
+            const fileData = {
+                name: source.name,
+                type: source.type,
+                size: source.size,
+                extracted_text: source.extracted_text || source.preview || '',
+                gemini_file_uri: source.gemini_file_uri
+            };
+            quickFilesArray.push(fileData);
+            addFileChipToChat(fileData);
+            attachedCount++;
+        }
+    });
+    
+    if (attachedCount > 0) {
+        showNotification(`✅ Đã gắn ${attachedCount} file vào chat`, 'success');
+        console.log('[Attach] Files attached:', quickFilesArray);
+        
+        // Uncheck all
+        checkboxes.forEach(cb => cb.checked = false);
+        updateAttachButtonState();
+    }
+}
+
+// Remove source from notebook panel
+async function removeSource(index) {
+    try {
+        const response = await fetch(`/api/notebook/source/${index}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        if (response.ok) {
+            await loadNotebookSourcesWithCheckboxes();
+            showNotification('✅ Đã xóa file', 'success');
+        }
+    } catch (error) {
+        console.error('[Notebook LLM] Remove error:', error);
+    }
+}
+
+// Create source item HTML (simple view mode)
+function createSourceItem(source, index) {
+    const div = document.createElement('div');
+    div.className = 'notebook-source-item animate-fade-in cursor-pointer';
+    div.style.animationDelay = `${index * 0.1}s`;
+    
+    const icon = getFileIcon(source.type);
+    
+    div.innerHTML = `
+        <div class="notebook-source-icon">${icon}</div>
+        <div class="notebook-source-info">
+            <div class="notebook-source-name" title="${source.name}">${source.name}</div>
+            <div class="notebook-source-meta">${source.type} • ${formatFileSize(source.size)}</div>
+        </div>
+        <button onclick="event.stopPropagation(); removeSource(${index})" class="p-1 hover:bg-red-500/20 rounded text-zinc-500 hover:text-red-400 transition-colors" title="Xóa">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    `;
+    
+    // Click to preview
+    div.onclick = () => showFilePreviewInPanel(source);
+    
+    return div;
+}
+
+// Show file preview in macOS style panel
+function showFilePreviewInPanel(source) {
+    const panel = document.getElementById('file-preview-panel');
+    const filename = document.getElementById('preview-filename');
+    const content = document.getElementById('preview-content');
+    const meta = document.getElementById('preview-meta');
+    
+    filename.textContent = source.name;
+    meta.textContent = `${formatFileSize(source.size)} • ${source.type || 'unknown'}`;
+    
+    // Show content preview
+    let previewText = source.extracted_text || source.content || '[Không có nội dung preview]';
+    if (previewText.length > 2000) {
+        previewText = previewText.substring(0, 2000) + '\n\n[... Còn ' + (previewText.length - 2000) + ' ký tự ...]';
+    }
+    content.textContent = previewText;
+    
+    panel.classList.remove('hidden');
+    panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Hide file preview panel
+function hideFilePreviewPanel() {
+    const panel = document.getElementById('file-preview-panel');
+    if (panel) panel.classList.add('hidden');
+}
+
+// Get icon for file type
+function getFileIcon(type) {
+    if (type.includes('pdf')) {
+        return '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+    } else if (type.includes('text') || type.includes('markdown')) {
+        return '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
+    } else {
+        return '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
+    }
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Clear all notebook sources
+async function clearAllNotebookSources() {
+    if (!confirm('Bạn có chắc muốn xóa tất cả file trong Notebook LLM?')) return;
+    
+    try {
+        const response = await fetch('/api/notebook/clear/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            showNotification('🗑️ Đã xóa tất cả file', 'success');
+            await loadNotebookSources();
+        }
+    } catch (error) {
+        console.error('[Notebook LLM] Clear error:', error);
+        showNotification('❌ Lỗi khi xóa file', 'error');
+    }
+}
+
+// Attach notebook to chat - Show chips in input
+function attachNotebookToChat() {
+    const count = notebookContext.length;
+    if (count === 0) {
+        showNotification('❌ Chưa có file nào để gắn', 'error');
+        return;
+    }
+    
+    // Display file chips in chat input
+    displayFileChipsInChat();
+    
+    closeNotebookPanel();
+    showNotification(`📎 Đã gắn ${count} file vào chat. Click chip để xem preview, X để xóa!`, 'success');
+}
+
+// Display file chips in chat input area (hashtag style)
+function displayFileChipsInChat() {
+    const container = document.getElementById('chat-file-chips');
+    container.innerHTML = '';
+    
+    notebookContext.forEach((source, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-600/20 border border-blue-500/30 rounded-lg text-xs text-blue-300 transition-all hover:bg-blue-600/30 cursor-pointer';
+        chip.onclick = (e) => {
+            if (!e.target.closest('.chip-delete-btn')) {
+                previewFileContent(index);
+            }
+        };
+        
+        // File icon based on type
+        let fileIcon = '📄';
+        if (source.type?.includes('pdf')) fileIcon = '📑';
+        else if (source.type?.includes('word') || source.name?.endsWith('.doc')) fileIcon = '📝';
+        else if (source.type?.includes('text')) fileIcon = '📃';
+        
+        chip.innerHTML = `
+            <span class="file-icon">${fileIcon}</span>
+            <span class="file-name truncate max-w-[120px]">${source.name}</span>
+            <button type="button" class="chip-delete-btn ml-0.5 p-0.5 hover:bg-blue-500/30 rounded transition-colors" onclick="removeFileChipFromChat(${index})" title="Xóa file">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        `;
+        
+        container.appendChild(chip);
+    });
+    
+    container.classList.remove('hidden');
+}
+
+// Remove file chip from chat input
+function removeFileChipFromChat(index) {
+    notebookContext.splice(index, 1);
+    displayFileChipsInChat();
+    
+    if (notebookContext.length === 0) {
+        document.getElementById('chat-file-chips').classList.add('hidden');
+    }
+    
+    // Also update the notebook panel
+    loadNotebookSources();
+}
+
+// Preview file content in modal/panel
+function previewFileContent(index) {
+    const source = notebookContext[index];
+    if (!source) return;
+    
+    const content = source.extracted_text || '[Không có nội dung text]';
+    const preview = content.substring(0, 2000);
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'file-preview-modal';
+    modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+        <div class="bg-zinc-800 rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl border border-zinc-700">
+            <div class="p-4 border-b border-zinc-700 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📄</span>
+                    <div>
+                        <h3 class="font-semibold text-zinc-100">${source.name}</h3>
+                        <p class="text-xs text-zinc-500">${source.type || 'Unknown'} • ${formatFileSize(source.size)}</p>
+                    </div>
+                </div>
+                <button onclick="closeFilePreview()" class="p-1 hover:bg-zinc-700 rounded text-zinc-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <pre class="text-sm text-zinc-300 whitespace-pre-wrap font-mono bg-zinc-900/50 p-4 rounded-lg border border-zinc-700">${preview}${content.length > 2000 ? '\n\n[... Còn ' + (content.length - 2000) + ' ký tự ...]' : ''}</pre>
+            </div>
+            <div class="p-4 border-t border-zinc-700 flex justify-end gap-2">
+                <button onclick="closeFilePreview()" class="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded-lg text-sm">Đóng</button>
+                <button onclick="removeFileChipFromChat(${index}); closeFilePreview();" class="px-4 py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg text-sm">Xóa file</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Close file preview modal
+function closeFilePreview() {
+    const modal = document.getElementById('file-preview-modal');
+    if (modal) modal.remove();
+}
+
+// Clear file chips when sending message
+function clearChatFileChips() {
+    const container = document.getElementById('chat-file-chips');
+    container.innerHTML = '';
+    container.classList.add('hidden');
+}
+
+// Get CSRF cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const colors = {
+        success: 'bg-emerald-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500'
+    };
+    
+    const notif = document.createElement('div');
+    notif.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in`;
+    notif.textContent = message;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => {
+        notif.remove();
+    }, 3000);
+}
+
+// Update notebook indicator in chat input
+function updateNotebookIndicator(count) {
+    const input = document.getElementById('message-input');
+    if (!input) return;
+    
+    const parent = input.closest('.relative') || input.parentElement;
+    let indicator = parent.querySelector('#notebook-indicator');
+    
+    if (count > 0) {
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'notebook-indicator';
+            indicator.className = 'absolute -top-6 left-0 flex items-center gap-1 text-xs text-blue-400 animate-fade-in';
+            parent.style.position = 'relative';
+            parent.appendChild(indicator);
+        }
+        indicator.innerHTML = `
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span>${count} file đã gắn</span>
+        `;
+    } else if (indicator) {
+        indicator.remove();
+    }
+}
+
+// Quick upload from dropdown
+function triggerQuickUpload(files) {
+    if (!files || files.length === 0) return;
+    
+    // Hide dropdown
+    const attachmentMenu = document.getElementById('attachment-menu');
+    if (attachmentMenu) attachmentMenu.classList.add('hidden');
+    
+    // Upload directly to chat (not through panel)
+    uploadFilesToChat(files);
+}
+
+// Load notebook sources on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadNotebookSources();
+    
+    // Setup drag and drop for notebook panel
+    const dropzone = document.getElementById('notebook-dropzone');
+    if (dropzone) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.add('drag-over');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.remove('drag-over');
+            }, false);
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            handleNotebookFileUpload(files);
+        }, false);
+    }
+});
+
+// Modified sendMessage to include notebook context
+function sendMessageWithNotebook(event) {
+    if (notebookContext.length > 0) {
+        const input = document.getElementById('message-input');
+        const userMessage = input.value;
+        
+        // Prepend file contents as context (hidden from user view but sent to AI)
+        let contextPrompt = '';
+        notebookContext.forEach(file => {
+            contextPrompt += `\n--- File: ${file.name} ---\n${file.content}\n---\n`;
+        });
+        
+        // Store context in a data attribute for the form to pick up
+        input.dataset.notebookContext = contextPrompt;
+    }
+    
+    // Call original sendMessage
+    sendMessage(event);
+}
+
+</script>
+{% endblock %}

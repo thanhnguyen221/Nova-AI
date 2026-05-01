@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ deck.title }} - Slide Editor</title>
+    {% load static %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        
+        /* Prevent text selection during drag */
+        .no-select { user-select: none; }
+        
+        /* Smooth transitions */
+        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Animation Keyframes */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideInUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideInLeft {
+            from { transform: translateX(-30px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(30px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        @keyframes tada {
+            0% { transform: scale(1); }
+            10%, 20% { transform: scale(0.9) rotate(-3deg); }
+            30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); }
+            40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); }
+            100% { transform: scale(1) rotate(0); }
+        }
+        @keyframes flip {
+            0% { transform: perspective(400px) rotateY(0); }
+            100% { transform: perspective(400px) rotateY(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white overflow-hidden">
+    {% csrf_token %}
+<!-- Editor Layout -->
+<div class="h-screen flex flex-col bg-zinc-950">
+    <!-- Top Toolbar -->
+    <div class="h-14 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 shrink-0">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'slide_dashboard' %}" class="text-zinc-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+            </a>
+            <h1 class="text-white font-semibold truncate max-w-xs">{{ deck.title }}</h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <!-- Navigation -->
+            <div class="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
+                <button onclick="previousSlide()" class="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <span id="slide-counter" class="text-sm text-zinc-400 px-2">1 / 1</span>
+                <button onclick="nextSlide()" class="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Actions -->
+            <button onclick="addNewSlide()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Slide
+            </button>
+            
+            <button onclick="duplicateSlide()" class="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white" title="Duplicate Slide (Ctrl+Shift+D)">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+            </button>
+            
+            <button onclick="deleteSlide()" class="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-red-400" title="Delete Slide (Shift+Delete)">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+            </button>
+            
+            <!-- Save indicator -->
+            <span id="save-indicator" class="text-xs text-zinc-500 opacity-0 transition-opacity duration-300 mr-2"></span>
+            
+            <div class="relative">
+                <button onclick="toggleExportMenu()" class="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                </button>
+                <div id="export-menu" class="hidden absolute right-0 top-full mt-2 w-40 bg-zinc-800 rounded-lg shadow-xl border border-zinc-700 py-1 z-50">
+                    <a href="{% url 'export_pptx' deck.id %}" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700">PowerPoint (.pptx)</a>
+                    <a href="{% url 'export_pdf' deck.id %}" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700">PDF (.pdf)</a>
+                    <a href="{% url 'present_deck' deck.id %}" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700">Present Mode</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Left Sidebar - Thumbnails -->
+        <div class="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+            <div class="p-3 border-b border-zinc-800">
+                <h3 class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Slides</h3>
+            </div>
+            <div id="slides-thumbnails" class="flex-1 overflow-y-auto p-3 space-y-2">
+                <!-- Thumbnails rendered here -->
+            </div>
+            <div class="p-3 border-t border-zinc-800">
+                <button onclick="addNewSlide()" class="w-full py-2 border border-dashed border-zinc-600 hover:border-indigo-500 hover:text-indigo-400 text-zinc-500 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Add Slide
+                </button>
+            </div>
+        </div>
+        
+        <!-- Center - Preview -->
+        <div class="flex-1 bg-zinc-950 flex flex-col">
+            <div class="flex-1 flex items-center justify-center p-4 overflow-auto">
+                <div id="slide-preview-container" class="relative bg-white rounded-lg shadow-2xl overflow-hidden" style="aspect-ratio: 16/9; max-width: 100%; width: 1000px; max-height: calc(100vh - 200px);">
+                    <div id="slide-preview" class="w-full h-full p-8 flex flex-col items-center justify-center">
+                        <!-- Slide content rendered here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Controls -->
+            <div class="h-12 bg-zinc-900 border-t border-zinc-800 flex items-center justify-center gap-4 px-4">
+                <select id="ratio-selector" onchange="updateDeckRatio(this.value)" class="bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm rounded px-3 py-1">
+                    <option value="16:9" {% if deck.aspect_ratio == '16:9' %}selected{% endif %}>16:9</option>
+                    <option value="4:3" {% if deck.aspect_ratio == '4:3' %}selected{% endif %}>4:3</option>
+                    <option value="21:9" {% if deck.aspect_ratio == '21:9' %}selected{% endif %}>21:9</option>
+                </select>
+                
+                <button onclick="toggleCanvasPanel()" class="flex items-center gap-2 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    Canvas
+                </button>
+                <button onclick="toggleAIPanel()" class="flex items-center gap-2 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    AI Assistant
+                    <span class="text-xs text-zinc-500">Ctrl+Shift+A</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Right Sidebar - Editor -->
+        <div class="w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col">
+            <div class="p-3 border-b border-zinc-800">
+                <h3 class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Properties</h3>
+            </div>
+            
+            <div id="content-editor" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- Editor fields rendered here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- AI Assistant Panel (Collapsible) -->
+    <div id="ai-panel" class="h-0 bg-zinc-900 border-t border-zinc-800 overflow-hidden transition-all duration-300 flex flex-col">
+        <div class="flex items-center justify-between p-3 border-b border-zinc-800">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-zinc-200">AI Assistant</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <select id="ai-model-selector" onchange="updateAIModel(this.value)" class="bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded px-2 py-1">
+                    <!-- Models loaded dynamically -->
+                </select>
+                <button onclick="toggleAIPanel()" class="p-1 hover:bg-zinc-800 rounded text-zinc-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex-1 flex overflow-hidden">
+            <div id="ai-messages" class="flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- AI messages rendered here -->
+            </div>
+        </div>
+        
+        <div class="p-3 border-t border-zinc-800">
+            <form onsubmit="sendAIMessage(event)" class="flex gap-2">
+                <div class="flex-1 relative">
+                    <input type="text" id="ai-input" placeholder="Ask AI to help with your slide..." 
+                        class="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                        autocomplete="off">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">
+                    Send
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Canvas Design Panel (Collapsible) -->
+    <div id="canvas-panel" class="hidden fixed right-0 top-14 bottom-0 w-80 bg-zinc-900 border-l border-zinc-800 shadow-2xl z-50 flex flex-col">
+        <div class="flex items-center justify-between p-3 border-b border-zinc-800">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-zinc-200">Canvas Design</span>
+            </div>
+            <button onclick="toggleCanvasPanel()" class="p-1 hover:bg-zinc-800 rounded text-zinc-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Canvas Tabs -->
+        <div class="flex border-b border-zinc-800 flex-wrap">
+            <button onclick="switchCanvasTab('shapes')" id="canvas-tab-shapes" class="flex-1 py-2 text-xs font-medium text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/10">
+                Shapes
+            </button>
+            <button onclick="switchCanvasTab('icons')" id="canvas-tab-icons" class="flex-1 py-2 text-xs font-medium text-zinc-400 border-b-2 border-transparent hover:text-zinc-200">
+                Icons
+            </button>
+            <button onclick="switchCanvasTab('images')" id="canvas-tab-images" class="flex-1 py-2 text-xs font-medium text-zinc-400 border-b-2 border-transparent hover:text-zinc-200">
+                Images
+            </button>
+            <button onclick="switchCanvasTab('background')" id="canvas-tab-background" class="flex-1 py-2 text-xs font-medium text-zinc-400 border-b-2 border-transparent hover:text-zinc-200">
+                BG
+            </button>
+            <button onclick="switchCanvasTab('animate')" id="canvas-tab-animate" class="flex-1 py-2 text-xs font-medium text-zinc-400 border-b-2 border-transparent hover:text-zinc-200">
+                Animate
+            </button>
+        </div>
+
+        <!-- Canvas Content -->
+        <div class="flex-1 overflow-y-auto p-4">
+            <!-- Shapes Tab -->
+            <div id="canvas-content-shapes" class="space-y-4">
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Basic Shapes</h4>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="addCanvasShape('rectangle')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Rectangle">
+                            <div class="w-6 h-4 border-2 border-zinc-400 rounded-sm"></div>
+                        </button>
+                        <button onclick="addCanvasShape('circle')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Circle">
+                            <div class="w-6 h-6 border-2 border-zinc-400 rounded-full"></div>
+                        </button>
+                        <button onclick="addCanvasShape('triangle')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Triangle">
+                            <svg class="w-6 h-6 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 4L4 20h16L12 4z"/>
+                            </svg>
+                        </button>
+                        <button onclick="addCanvasShape('diamond')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Diamond">
+                            <svg class="w-6 h-6 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 12l10 10 10-10L12 2z"/>
+                            </svg>
+                        </button>
+                        <button onclick="addCanvasShape('star')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Star">
+                            <svg class="w-6 h-6 text-zinc-400" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                        </button>
+                        <button onclick="addCanvasShape('arrow')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Arrow">
+                            <svg class="w-6 h-6 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                        <button onclick="addCanvasShape('heart')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Heart">
+                            <svg class="w-6 h-6 text-zinc-400" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                        </button>
+                        <button onclick="addCanvasShape('hexagon')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors" title="Hexagon">
+                            <svg class="w-6 h-6 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path d="M12 2l8.66 5v10L12 22 3.34 17V7L12 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Style Options</h4>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs text-zinc-400 block mb-1">Fill Color</label>
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="setCanvasColor('fill', '#ffffff')" class="w-6 h-6 rounded-full bg-white border border-zinc-600"></button>
+                                <button onclick="setCanvasColor('fill', '#000000')" class="w-6 h-6 rounded-full bg-black border border-zinc-600"></button>
+                                <button onclick="setCanvasColor('fill', '#ef4444')" class="w-6 h-6 rounded-full bg-red-500"></button>
+                                <button onclick="setCanvasColor('fill', '#22c55e')" class="w-6 h-6 rounded-full bg-green-500"></button>
+                                <button onclick="setCanvasColor('fill', '#3b82f6')" class="w-6 h-6 rounded-full bg-blue-500"></button>
+                                <button onclick="setCanvasColor('fill', '#eab308')" class="w-6 h-6 rounded-full bg-yellow-500"></button>
+                                <button onclick="setCanvasColor('fill', '#a855f7')" class="w-6 h-6 rounded-full bg-purple-500"></button>
+                                <button onclick="setCanvasColor('fill', '#ec4899')" class="w-6 h-6 rounded-full bg-pink-500"></button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-zinc-400 block mb-1">Stroke Color</label>
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="setCanvasColor('stroke', 'transparent')" class="w-6 h-6 rounded-full bg-zinc-800 border-2 border-red-500 flex items-center justify-center" title="No Stroke">
+                                    <span class="text-[8px] text-red-500">✕</span>
+                                </button>
+                                <button onclick="setCanvasColor('stroke', '#ffffff')" class="w-6 h-6 rounded-full bg-white border border-zinc-600"></button>
+                                <button onclick="setCanvasColor('stroke', '#000000')" class="w-6 h-6 rounded-full bg-black border border-zinc-600"></button>
+                                <button onclick="setCanvasColor('stroke', '#3b82f6')" class="w-6 h-6 rounded-full bg-blue-500"></button>
+                                <button onclick="setCanvasColor('stroke', '#22c55e')" class="w-6 h-6 rounded-full bg-green-500"></button>
+                                <button onclick="setCanvasColor('stroke', '#ef4444')" class="w-6 h-6 rounded-full bg-red-500"></button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-zinc-400 block mb-1">Stroke Width</label>
+                            <input type="range" id="canvas-stroke-width" min="0" max="10" value="2" class="w-full accent-emerald-500" onchange="updateCanvasStrokeWidth(this.value)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Icons Tab -->
+            <div id="canvas-content-icons" class="space-y-4 hidden">
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Icon Library</h4>
+                    <div class="grid grid-cols-5 gap-2">
+                        <!-- Business Icons -->
+                        <button onclick="addCanvasIcon('chart')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('users')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('lightbulb')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('target')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('rocket')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.87 4.87 0 00-1.023 1.051c-1.205 1.636-1.527 3.875-.966 5.873a1.766 1.766 0 01-1.485 2.053 1.76 1.76 0 01-1.485-.568 1.766 1.766 0 01-.644-1.59c.183-.76.472-1.49.863-2.181a11.9 11.9 0 012.928-3.362 5.65 5.65 0 00.958-1.303c.168-.292.405-.55.705-.741a3.06 3.06 0 011.73-.535c.7 0 1.39.18 2 .52m4.78 4.78a4.87 4.87 0 00-1.023-1.051c-1.205-1.636-1.527-3.875-.966-5.873a1.766 1.766 0 011.485-2.053 1.76 1.76 0 011.485.568 1.766 1.766 0 01.644 1.59c-.183.76-.472 1.49-.863 2.181a11.9 11.9 0 01-2.928 3.362 5.65 5.65 0 00-.958 1.303c-.168.292-.405.55-.705.741a3.06 3.06 0 01-1.73.535c-.7 0-1.39-.18-2-.52m-4.78-4.78a4.87 4.87 0 011.023-1.051c1.205-1.636 1.527-3.875.966-5.873a1.766 1.766 0 01-1.485-2.053 1.76 1.76 0 01-1.485.568 1.766 1.766 0 01-.644-1.59c.183.76.472 1.49.863 2.181a11.9 11.9 0 002.928 3.362 5.65 5.65 0 00.958-1.303c.168-.292.405-.55.705-.741a3.06 3.06 0 011.73-.535c.7 0 1.39.18 2 .52"/></svg>
+                        </button>
+                        <!-- Tech Icons -->
+                        <button onclick="addCanvasIcon('code')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('database')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('cloud')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('shield')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('wifi')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
+                        </button>
+                        <!-- UI Icons -->
+                        <button onclick="addCanvasIcon('menu')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('search')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('settings')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('bell')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        </button>
+                        <button onclick="addCanvasIcon('calendar')" class="aspect-square bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Icon Color</h4>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="setCanvasIconColor('#ffffff')" class="w-6 h-6 rounded-full bg-white border border-zinc-600"></button>
+                        <button onclick="setCanvasIconColor('#000000')" class="w-6 h-6 rounded-full bg-black border border-zinc-600"></button>
+                        <button onclick="setCanvasIconColor('#3b82f6')" class="w-6 h-6 rounded-full bg-blue-500"></button>
+                        <button onclick="setCanvasIconColor('#22c55e')" class="w-6 h-6 rounded-full bg-green-500"></button>
+                        <button onclick="setCanvasIconColor('#ef4444')" class="w-6 h-6 rounded-full bg-red-500"></button>
+                        <button onclick="setCanvasIconColor('#f59e0b')" class="w-6 h-6 rounded-full bg-amber-500"></button>
+                        <button onclick="setCanvasIconColor('#a855f7')" class="w-6 h-6 rounded-full bg-purple-500"></button>
+                        <button onclick="setCanvasIconColor('#06b6d4')" class="w-6 h-6 rounded-full bg-cyan-500"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Images Tab -->
+            <div id="canvas-content-images" class="space-y-4 hidden">
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Search Images (DuckDuckGo)</h4>
+                    <div class="flex gap-2">
+                        <input type="text" id="unsplash-search-input" placeholder="Search for images..."
+                            class="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-emerald-500"
+                            onkeypress="if(event.key==='Enter')searchDuckDuckGoImages()">
+                        <button onclick="searchDuckDuckGoImages()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="unsplash-results" class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                    <!-- Search results will appear here -->
+                    <div class="col-span-2 text-center py-8 text-zinc-500 text-sm">
+                        <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Search images with DuckDuckGo (free, no API key)
+                    </div>
+                </div>
+                <div id="unsplash-note" class="text-xs text-zinc-500 italic hidden"></div>
+                <div class="flex gap-2">
+                    <button onclick="searchUnsplashImages()" class="flex-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-400 transition-colors">
+                        Try Unsplash
+                    </button>
+                </div>
+            </div>
+
+            <!-- Effects Tab -->
+            <div id="canvas-content-effects" class="space-y-4 hidden">
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Filters</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Gradient Backgrounds</h4>
+                    <div class="space-y-2">
+                        <button onclick="applySlideBackground('linear-gradient(135deg, #667eea 0%, #764ba2 100%)')" class="w-full h-12 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-xs text-white font-medium hover:scale-105 transition-transform">Purple Dream</button>
+                        <button onclick="applySlideBackground('linear-gradient(135deg, #f093fb 0%, #f5576c 100%)')" class="w-full h-12 rounded-lg bg-gradient-to-r from-pink-400 to-rose-500 text-xs text-white font-medium hover:scale-105 transition-transform">Pink Sunset</button>
+                        <button onclick="applySlideBackground('linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)')" class="w-full h-12 rounded-lg bg-gradient-to-r from-blue-400 to-cyan-400 text-xs text-white font-medium hover:scale-105 transition-transform">Ocean Blue</button>
+                        <button onclick="applySlideBackground('linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)')" class="w-full h-12 rounded-lg bg-gradient-to-r from-green-400 to-teal-400 text-xs text-white font-medium hover:scale-105 transition-transform">Fresh Green</button>
+                        <button onclick="applySlideBackground('linear-gradient(135deg, #fa709a 0%, #fee140 100%)')" class="w-full h-12 rounded-lg bg-gradient-to-r from-rose-400 to-amber-300 text-xs text-white font-medium hover:scale-105 transition-transform">Warm Sunset</button>
+                        <button onclick="applySlideBackground('linear-gradient(135deg, #30cfd0 0%, #330867 100%)')" class="w-full h-12 rounded-lg bg-gradient-to-r from-teal-400 to-indigo-900 text-xs text-white font-medium hover:scale-105 transition-transform">Deep Ocean</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Custom Color</h4>
+                    <div class="flex gap-2">
+                        <input type="color" id="custom-bg-color" class="w-12 h-10 rounded-lg bg-zinc-800 border border-zinc-700 cursor-pointer" value="#ffffff">
+                        <button onclick="applySlideBackground(document.getElementById('custom-bg-color').value)" class="flex-1 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Apply Color</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Image Background</h4>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="bg-image-url" placeholder="Enter image URL..." class="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600">
+                        <button onclick="applySlideBackgroundImage(document.getElementById('bg-image-url').value)" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs transition-colors">Set</button>
+                    </div>
+                    <button onclick="applySlideBackground('transparent'); document.getElementById('bg-image-url').value='';" class="w-full px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs transition-colors">Remove Background</button>
+                </div>
+            </div>
+
+            <!-- Animation Tab -->
+            <div id="canvas-content-animate" class="space-y-4 hidden">
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Entrance Animations</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="applySlideAnimation('fadeIn', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Fade In</button>
+                        <button onclick="applySlideAnimation('slideInUp', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Slide Up</button>
+                        <button onclick="applySlideAnimation('slideInLeft', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Slide Left</button>
+                        <button onclick="applySlideAnimation('slideInRight', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Slide Right</button>
+                        <button onclick="applySlideAnimation('zoomIn', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Zoom In</button>
+                        <button onclick="applySlideAnimation('bounceIn', '0.6s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Bounce In</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Emphasis Animations</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="applySlideAnimation('pulse', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Pulse</button>
+                        <button onclick="applySlideAnimation('shake', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Shake</button>
+                        <button onclick="applySlideAnimation('tada', '0.5s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Tada!</button>
+                        <button onclick="applySlideAnimation('flip', '0.6s')" class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs text-zinc-300 transition-colors">Flip</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Duration</h4>
+                    <div class="flex gap-2">
+                        <button onclick="setAnimationDuration('0.3s')" class="flex-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300">Fast</button>
+                        <button onclick="setAnimationDuration('0.5s')" class="flex-1 px-2 py-1 bg-emerald-600 text-white rounded text-xs">Normal</button>
+                        <button onclick="setAnimationDuration('1s')" class="flex-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs text-zinc-300">Slow</button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-medium text-zinc-500 uppercase mb-2">Preview</h4>
+                    <button onclick="previewCurrentAnimation()" class="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Play Animation
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initial data
+const deckId = {{ deck.id }};
+const initialSlides = JSON.parse('{{ slides_json|escapejs }}');
+const initialTheme = JSON.parse('{{ theme_config_json|escapejs }}');
+
+// State
+let slides = initialSlides;
+let currentSlideIndex = 0;
+let currentTheme = initialTheme;
+let aiConversation = [];
+
+// DOM Elements
+const previewContainer = document.getElementById('slide-preview-container');
+const preview = document.getElementById('slide-preview');
+const thumbnailsContainer = document.getElementById('slides-thumbnails');
+const contentEditor = document.getElementById('content-editor');
+
+// Initialize
+function init() {
+    // First, restore canvas elements from server-loaded content
+    restoreCanvasElementsFromServer();
+    
+    renderThumbnails();
+    updatePreviewSize();
+    renderCurrentSlide();
+    renderEditor();
+    updateSlideCounter();
+    initAIModels();
+    loadSession();
+    showLastSaved();
+    
+    // Auto-save every 30 seconds
+    setInterval(() => {
+        if (slides.length > 0) {
+            saveSession();
+        }
+    }, 30000);
+    
+    // Save before page unload
+    window.addEventListener('beforeunload', () => {
+        saveSession();
+    });
+}
+
+// Restore canvas elements from server-loaded content
+function restoreCanvasElementsFromServer() {
+    slides.forEach(slide => {
+        const content = slide.content || {};
+        // Restore canvas elements from _canvasElements if they exist
+        if (content._canvasElements && content._canvasElements.length > 0) {
+            slide.canvasElements = JSON.parse(JSON.stringify(content._canvasElements));
+        }
+        // Also check for direct canvasElements (backwards compatibility)
+        if (content.canvasElements && content.canvasElements.length > 0 && !slide.canvasElements) {
+            slide.canvasElements = JSON.parse(JSON.stringify(content.canvasElements));
+        }
+        // Restore background
+        if (content._background) {
+            slide.background = content._background;
+        }
+        if (content.background && !slide.background) {
+            slide.background = content.background;
+        }
+        // Restore animations
+        if (content._animations && content._animations.length > 0) {
+            slide.animations = JSON.parse(JSON.stringify(content._animations));
+        }
+        if (content.animations && content.animations.length > 0 && !slide.animations) {
+            slide.animations = JSON.parse(JSON.stringify(content.animations));
+        }
+    });
+}
+
+// Update AI Model
+function updateAIModel() {
+    const selector = document.getElementById('ai-model-selector');
+    if (selector) {
+        sessionStorage.setItem('slide_ai_model', selector.value);
+    }
+}
+
+function getActiveModel() {
+    const selector = document.getElementById('ai-model-selector');
+    return selector ? selector.value : 'gemini-1.5-flash';
+}
+
+// Save session to localStorage
+function saveSession() {
+    const sessionData = {
+        slides: slides,
+        currentSlideIndex: currentSlideIndex,
+        lastSaved: new Date().toISOString()
+    };
+    localStorage.setItem(`slide_session_${deckId}`, JSON.stringify(sessionData));
+    showLastSaved();
+}
+
+// Load session from localStorage
+function loadSession() {
+    const saved = localStorage.getItem(`slide_session_${deckId}`);
+    if (saved) {
+        try {
+            const sessionData = JSON.parse(saved);
+            // Restore slide content if matches current deck
+            if (sessionData.slides && sessionData.slides.length > 0) {
+                // Merge with server slides - update content
+                sessionData.slides.forEach((savedSlide, idx) => {
+                    if (slides[idx]) {
+                        slides[idx].content = savedSlide.content;
+                        slides[idx].layout = savedSlide.layout;
+                    }
+                });
+                currentSlideIndex = Math.min(sessionData.currentSlideIndex || 0, slides.length - 1);
+                renderThumbnails();
+                renderCurrentSlide();
+                renderEditor();
+                updateSlideCounter();
+            }
+        } catch (e) {
+            console.error('Error loading session:', e);
+        }
+    }
+}
+
+// Show last saved time
+function showLastSaved() {
+    const saved = localStorage.getItem(`slide_session_${deckId}`);
+    const indicator = document.getElementById('save-indicator');
+    if (saved && indicator) {
+        try {
+            const data = JSON.parse(saved);
+            const date = new Date(data.lastSaved);
+            const timeStr = date.toLocaleString('vi-VN', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit'
+            });
+            indicator.textContent = `Lưu lúc: ${timeStr}`;
+            indicator.classList.remove('opacity-0');
+            setTimeout(() => indicator.classList.add('opacity-0'), 3000);
+        } catch (e) {
+            console.error('Error showing last saved:', e);
+        }
+    }
+}
+
+// Update preview size based on aspect ratio
+function updatePreviewSize() {
+    const ratioSelector = document.getElementById('ratio-selector');
+    if (!ratioSelector || !previewContainer) return;
+    
+    const ratio = ratioSelector.value;
+    let aspectRatio = '16/9';
+    
+    if (ratio === '4:3') aspectRatio = '4/3';
+    else if (ratio === '21:9') aspectRatio = '21/9';
+    
+    previewContainer.style.aspectRatio = aspectRatio;
+}
+
+function updateDeckRatio(ratio) {
+    updatePreviewSize();
+    
+    const csrfToken = getCSRFToken();
+    if (!csrfToken) {
+        console.error('CSRF token not found');
+        return;
+    }
+    
+    // Save to backend
+    fetch(`/api/slides/decks/${deckId}/update/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ aspect_ratio: ratio })
+    }).catch(err => console.error('Error updating ratio:', err));
+}
+
+// Render thumbnails with modern card design
+function renderThumbnails() {
+    if (!thumbnailsContainer) return;
+    
+    thumbnailsContainer.innerHTML = slides.map((slide, index) => {
+        const content = slide.content || {};
+        const title = stripMarkdown(content.title || content.heading || `Slide ${index + 1}`);
+        const hasImage = content.image || content.images?.length > 0;
+        const isActive = index === currentSlideIndex;
+        
+        return `
+        <div onclick="selectSlide(${index})" 
+             class="group relative aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${isActive ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-zinc-700 hover:border-zinc-500'}"
+             style="background: ${currentTheme.bg};">
+            
+            <!-- Slide Number -->
+            <div class="absolute top-2 left-2 z-10">
+                <span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-medium ${isActive ? 'bg-indigo-500 text-white' : 'bg-zinc-800/80 text-zinc-400'}">
+                    ${index + 1}
+                </span>
+            </div>
+            
+            <!-- Content Preview -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center p-3 pt-6">
+                <div class="text-center w-full">
+                    <div class="text-xs font-medium text-zinc-100 truncate leading-tight">
+                        ${escapeHtml(title.substring(0, 25))}
+                    </div>
+                    ${content.subtitle ? `<div class="text-[10px] text-zinc-500 truncate mt-0.5">${escapeHtml(content.subtitle.substring(0, 30))}</div>` : ''}
+                </div>
+            </div>
+            
+            <!-- Image Indicator -->
+            ${hasImage ? `
+            <div class="absolute top-2 right-2">
+                <svg class="w-3 h-3 text-zinc-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+                </svg>
+            </div>` : ''}
+            
+            <!-- Layout Label -->
+            <div class="absolute bottom-1 right-2">
+                <span class="text-[8px] text-zinc-500 capitalize">${slide.layout}</span>
+            </div>
+            
+            <!-- Active Indicator -->
+            ${isActive ? '<div class="absolute inset-0 bg-indigo-500/5 pointer-events-none"></div>' : ''}
+        </div>
+        `;
+    }).join('');
+}
+
+// Render current slide in preview
+function renderCurrentSlide() {
+    if (!preview || slides.length === 0) return;
+    
+    const slide = slides[currentSlideIndex];
+    const content = slide.content || {};
+    
+    // Load canvas elements from saved content if exists
+    if (content._canvasElements && !slide.canvasElements) {
+        slide.canvasElements = content._canvasElements;
+    }
+    if (content._background) {
+        slide.background = content._background;
+    }
+    if (content._animations) {
+        slide.animations = content._animations;
+    }
+
+    // Apply background if set
+    if (slide.background) {
+        preview.style.background = slide.background;
+        preview.style.backgroundSize = 'cover';
+        preview.style.backgroundPosition = 'center';
+    } else {
+        preview.style.background = '';
+    }
+
+    // Apply animations if set
+    if (slide.animations && slide.animations.length > 0) {
+        const anim = slide.animations[0];
+        preview.style.animation = `${anim.name} ${anim.duration || '0.5s'} ${anim.timing || 'ease'}`;
+    } else {
+        preview.style.animation = '';
+    }
+
+    let html = '';
+
+    switch (slide.layout) {
+        case 'title':
+            html = `
+                <div class="text-center">
+                    <h1 class="text-4xl font-bold text-zinc-900 mb-4">${escapeHtml(content.title || '')}</h1>
+                    ${content.subtitle ? `<p class="text-xl text-zinc-600">${escapeHtml(content.subtitle)}</p>` : ''}
+                </div>
+            `;
+            break;
+        case 'content':
+            html = `
+                <div class="w-full">
+                    <h2 class="text-2xl font-bold text-zinc-900 mb-4">${escapeHtml(content.title || '')}</h2>
+                    ${content.subtitle ? `<p class="text-lg text-zinc-600 mb-4">${escapeHtml(content.subtitle)}</p>` : ''}
+                    ${content.bullets ? `
+                        <ul class="space-y-2">
+                            ${content.bullets.map(b => `<li class="flex items-start gap-2"><span class="text-zinc-400 mt-1">•</span><span class="text-zinc-700">${escapeHtml(b)}</span></li>`).join('')}
+                        </ul>
+                    ` : ''}
+                </div>
+            `;
+            break;
+        default:
+            html = `<div class="text-zinc-400">${slide.layout} layout</div>`;
+    }
+
+    preview.innerHTML = html;
+
+    // Render canvas elements on top
+    if (slide.canvasElements && slide.canvasElements.length > 0) {
+        setTimeout(() => {
+            slide.canvasElements.forEach(elData => {
+                renderCanvasElement(elData);
+            });
+        }, 0);
+    }
+}
+
+// Render a single canvas element
+function renderCanvasElement(elData) {
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+
+    const el = document.createElement('div');
+    el.className = 'absolute cursor-move hover:ring-2 hover:ring-emerald-400 transition-all';
+    el.style.left = (elData.position?.x || 50) + '%';
+    el.style.top = (elData.position?.y || 50) + '%';
+    el.style.transform = 'translate(-50%, -50%)';
+    el.dataset.posX = elData.position?.x || 50;
+    el.dataset.posY = elData.position?.y || 50;
+
+    if (elData.type === 'image') {
+        el.style.maxWidth = elData.size?.width || '60%';
+        el.style.maxHeight = elData.size?.height || '60%';
+        el.innerHTML = `<img src="${elData.src}" alt="${elData.alt || ''}" class="max-w-full max-h-full rounded-lg shadow-lg" style="display: block;">`;
+        makeDraggable(el);
+        preview.appendChild(el);
+    } else if (elData.type === 'shape') {
+        canvasFillColor = elData.fill || '#3b82f6';
+        canvasStrokeColor = elData.stroke || 'transparent';
+        canvasStrokeWidth = elData.strokeWidth || 2;
+        const shapeDiv = createShapeElement(elData.shape);
+        if (shapeDiv) {
+            shapeDiv.style.left = el.style.left;
+            shapeDiv.style.top = el.style.top;
+            shapeDiv.dataset.posX = el.dataset.posX;
+            shapeDiv.dataset.posY = el.dataset.posY;
+            preview.appendChild(shapeDiv);
+            makeDraggable(shapeDiv);
+        }
+    } else if (elData.type === 'icon') {
+        canvasIconColor = elData.color || '#3b82f6';
+        const iconDiv = createIconElement(elData.icon);
+        if (iconDiv) {
+            iconDiv.style.left = el.style.left;
+            iconDiv.style.top = el.style.top;
+            iconDiv.dataset.posX = el.dataset.posX;
+            iconDiv.dataset.posY = el.dataset.posY;
+            preview.appendChild(iconDiv);
+            makeDraggable(iconDiv);
+        }
+    }
+}
+
+// Create shape element (extracted from addCanvasShape)
+function createShapeElement(shapeType) {
+    const shapeDiv = document.createElement('div');
+    shapeDiv.className = 'absolute cursor-move hover:ring-2 hover:ring-emerald-400 transition-all';
+    shapeDiv.style.transform = 'translate(-50%, -50%)';
+
+    const strokeStyle = canvasStrokeColor !== 'transparent'
+        ? `stroke: ${canvasStrokeColor}; stroke-width: ${canvasStrokeWidth}px;`
+        : '';
+
+    switch(shapeType) {
+        case 'rectangle':
+            shapeDiv.innerHTML = `<div style="width: 100px; height: 60px; background: ${canvasFillColor}; ${strokeStyle} border-radius: 4px;"></div>`;
+            break;
+        case 'circle':
+            shapeDiv.innerHTML = `<div style="width: 80px; height: 80px; background: ${canvasFillColor}; ${strokeStyle} border-radius: 50%;"></div>`;
+            break;
+        case 'triangle':
+            shapeDiv.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="${canvasFillColor}" stroke="${canvasStrokeColor}" stroke-width="${canvasStrokeWidth}"><path d="M12 4L4 20h16L12 4z"/></svg>`;
+            break;
+        case 'diamond':
+            shapeDiv.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="${canvasFillColor}" stroke="${canvasStrokeColor}" stroke-width="${canvasStrokeWidth}"><path d="M12 2L2 12l10 10 10-10L12 2z"/></svg>`;
+            break;
+        case 'star':
+            shapeDiv.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="${canvasFillColor}" stroke="${canvasStrokeColor}" stroke-width="${canvasStrokeWidth}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+            break;
+        case 'arrow':
+            shapeDiv.innerHTML = `<svg width="80" height="40" viewBox="0 0 24 24" fill="none" stroke="${canvasFillColor}" stroke-width="${Math.max(3, canvasStrokeWidth)}"><path d="M5 12h14M12 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            break;
+        case 'heart':
+            shapeDiv.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="${canvasFillColor}" stroke="${canvasStrokeColor}" stroke-width="${canvasStrokeWidth}"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+            break;
+        case 'hexagon':
+            shapeDiv.innerHTML = `<svg width="80" height="80" viewBox="0 0 24 24" fill="${canvasFillColor}" stroke="${canvasStrokeColor}" stroke-width="${canvasStrokeWidth}"><path d="M12 2l8.66 5v10L12 22 3.34 17V7L12 2z"/></svg>`;
+            break;
+        default:
+            return null;
+    }
+    return shapeDiv;
+}
+
+// Create icon element (extracted from addCanvasIcon)
+function createIconElement(iconType) {
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'absolute cursor-move hover:ring-2 hover:ring-emerald-400 transition-all p-2';
+    iconDiv.style.transform = 'translate(-50%, -50%)';
+    iconDiv.style.color = canvasIconColor;
+
+    const iconPaths = {
+        'chart': 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+        'users': 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+        'lightbulb': 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
+        'target': 'M13 10V3L4 14h7v7l9-11h-7z',
+        'code': 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+        'database': 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
+        'cloud': 'M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z',
+        'shield': 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+        'menu': 'M4 6h16M4 12h16M4 18h16',
+        'search': 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+        'settings': 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+        'bell': 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
+        'calendar': 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
+    };
+
+    const path = iconPaths[iconType] || iconPaths['chart'];
+    iconDiv.innerHTML = `<svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="${path}"/></svg>`;
+    return iconDiv;
+}
+
+// Render editor fields
+function renderEditor() {
+    if (!contentEditor || slides.length === 0) return;
+    
+    const slide = slides[currentSlideIndex];
+    const content = slide.content || {};
+    
+    let html = `
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs text-zinc-500 mb-1">Layout</label>
+                <select onchange="changeLayout(this.value)" class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm">
+                    <option value="title" ${slide.layout === 'title' ? 'selected' : ''}>Title Slide</option>
+                    <option value="content" ${slide.layout === 'content' ? 'selected' : ''}>Content</option>
+                    <option value="two-column" ${slide.layout === 'two-column' ? 'selected' : ''}>Two Column</option>
+                    <option value="image-text" ${slide.layout === 'image-text' ? 'selected' : ''}>Image + Text</option>
+                    <option value="quote" ${slide.layout === 'quote' ? 'selected' : ''}>Quote</option>
+                </select>
+            </div>
+    `;
+    
+    if (slide.layout === 'title' || slide.layout === 'content') {
+        html += `
+            <div>
+                <label class="block text-xs text-zinc-500 mb-1">Title</label>
+                <input type="text" value="${escapeHtml(content.title || '')}" 
+                    onchange="updateContent('title', this.value)"
+                    class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm">
+            </div>
+        `;
+        
+        if (slide.layout === 'content') {
+            html += `
+                <div>
+                    <label class="block text-xs text-zinc-500 mb-1">Subtitle</label>
+                    <input type="text" value="${escapeHtml(content.subtitle || '')}" 
+                        onchange="updateContent('subtitle', this.value)"
+                        class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-zinc-500 mb-1">Bullet Points (one per line)</label>
+                    <textarea 
+                        onchange="updateContent('bullets', this.value.split('\\n').filter(b => b.trim()))"
+                        rows="4"
+                        class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm resize-none">${(content.bullets || []).join('\\n')}</textarea>
+                </div>
+            `;
+        }
+    }
+    
+    html += '</div>';
+    contentEditor.innerHTML = html;
+}
+
+// Update content
+function updateContent(key, value) {
+    if (slides.length === 0) return;
+    slides[currentSlideIndex].content[key] = value;
+    renderCurrentSlide();
+    renderThumbnails();
+    saveSlide();
+    saveSession();
+}
+
+function changeLayout(newLayout) {
+    if (slides.length === 0) return;
+    slides[currentSlideIndex].layout = newLayout;
+    renderEditor();
+    renderCurrentSlide();
+    renderThumbnails();
+    saveSlide();
+    saveSession();
+}
+
+// Navigation
+function selectSlide(index) {
+    // Save current canvas elements before switching
+    if (slides[currentSlideIndex]) {
+        saveCurrentCanvasElements();
+    }
+
+    currentSlideIndex = index;
+    renderCurrentSlide();
+    renderEditor();
+
+    // Load canvas elements for new slide
+    if (slides[currentSlideIndex]) {
+        loadCanvasElements(slides[currentSlideIndex]);
+    }
+    renderThumbnails();
+    updateSlideCounter();
+    saveSession();
+}
+
+function nextSlide() {
+    if (currentSlideIndex < slides.length - 1) {
+        selectSlide(currentSlideIndex + 1);
+    }
+}
+
+function previousSlide() {
+    if (currentSlideIndex > 0) {
+        selectSlide(currentSlideIndex - 1);
+    }
+}
+
+function updateSlideCounter() {
+    const counter = document.getElementById('slide-counter');
+    if (counter) {
+        counter.textContent = `${currentSlideIndex + 1} / ${slides.length}`;
+    }
+}
+
+// CRUD Operations
+function getCSRFToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    return token ? token.value : '';
+}
+
+async function addNewSlide() {
+    try {
+        const csrfToken = getCSRFToken();
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            alert('Session expired. Please refresh the page.');
+            return;
+        }
+        
+        const response = await fetch(`/api/slides/decks/${deckId}/slides/create/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            slides.push(data.slide);
+            selectSlide(slides.length - 1);
+            saveSession();
+        } else {
+            console.error('Server error:', data);
+            alert('Failed to add slide: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error adding slide:', error);
+        alert('Error adding slide. Please try again.');
+    }
+}
+
+async function saveSlide() {
+    if (slides.length === 0) return;
+    const slide = slides[currentSlideIndex];
+
+    // Save current canvas elements before sending
+    saveCurrentCanvasElements();
+
+    // Merge canvas elements into content
+    const contentToSave = {
+        ...slide.content,
+        _canvasElements: slide.canvasElements || [],
+        _background: slide.background || null,
+        _animations: slide.animations || []
+    };
+
+    try {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            return;
+        }
+
+        await fetch(`/api/slides/decks/${deckId}/slides/${slide.id}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                content: contentToSave,
+                layout: slide.layout
+            })
+        });
+
+        // Update local slide data
+        slide.content = contentToSave;
+        saveSession();
+    } catch (error) {
+        console.error('Error saving slide:', error);
+    }
+}
+
+// AI Panel
+function toggleAIPanel() {
+    const panel = document.getElementById('ai-panel');
+    if (panel) {
+        const isOpen = panel.classList.contains('h-64');
+        panel.classList.toggle('h-64', !isOpen);
+        panel.classList.toggle('h-0', isOpen);
+    }
+}
+
+async function sendAIMessage(event) {
+    event.preventDefault();
+    const input = document.getElementById('ai-input');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    const csrfToken = getCSRFToken();
+    if (!csrfToken) {
+        console.error('CSRF token not found');
+        addAIMessage('assistant', '❌ Session expired. Please refresh the page.');
+        return;
+    }
+    
+    input.value = '';
+    addAIMessage('user', message);
+    
+    // Add thinking indicator
+    const thinkingId = addAIMessage('assistant', '💭 Thinking...', false, true);
+    
+    try {
+        const response = await fetch('/api/slides/ai/chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                message: message,
+                deck_id: deckId,
+                current_slide: slides[currentSlideIndex],
+                conversation: aiConversation,
+                model: getActiveModel()
+            })
+        });
+        
+        // Remove thinking indicator
+        removeAIMessage(thinkingId);
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            let responseText = data.response;
+            let slideContent = null;
+            
+            // Extract JSON from response
+            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)```/);
+            if (jsonMatch) {
+                try {
+                    const jsonData = JSON.parse(jsonMatch[1]);
+                    if (jsonData.slide_content) {
+                        slideContent = jsonData.slide_content;
+                    }
+                    responseText = responseText.replace(/```json\s*[\s\S]*?```/, '');
+                } catch (e) {
+                    console.log('Failed to parse JSON');
+                }
+            }
+            
+            responseText = stripMarkdown(responseText);
+            aiConversation.push({ role: 'assistant', content: responseText });
+            addAIMessage('assistant', responseText);
+            
+            if (slideContent || data.slide_content) {
+                const content = slideContent || data.slide_content;
+                Object.assign(slides[currentSlideIndex].content, content);
+                renderCurrentSlide();
+                renderThumbnails();
+                saveSlide();
+                addAIMessage('assistant', '✅ Applied to slide!', true);
+            }
+        }
+    } catch (error) {
+        // Remove thinking indicator on error
+        removeAIMessage(thinkingId);
+        console.error('AI Error:', error);
+        addAIMessage('assistant', '❌ Error: ' + error.message);
+    }
+}
+
+let aiMessageId = 0;
+
+function addAIMessage(role, content, isNotification = false, isLoading = false) {
+    const container = document.getElementById('ai-messages');
+    if (!container) return;
+    
+    const id = 'ai-msg-' + (++aiMessageId);
+    const cleanContent = stripMarkdown(content);
+    const div = document.createElement('div');
+    div.id = id;
+    div.className = 'flex gap-2' + (isNotification ? ' opacity-70' : '');
+    
+    if (isLoading) {
+        div.className += ' ai-thinking';
+        div.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-3 h-3 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+            </div>
+            <div class="flex-1 bg-zinc-800 rounded-lg p-2 text-sm text-zinc-300">${escapeHtml(cleanContent)}</div>
+        `;
+    } else if (role === 'user') {
+        div.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center flex-shrink-0">
+                <svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+            </div>
+            <div class="flex-1 bg-zinc-800/50 rounded-lg p-2 text-sm text-zinc-300">${escapeHtml(cleanContent)}</div>
+        `;
+    } else {
+        div.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div class="flex-1 bg-zinc-800 rounded-lg p-2 text-sm text-zinc-300">${escapeHtml(cleanContent)}</div>
+        `;
+    }
+    
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return id;
+}
+
+function removeAIMessage(id) {
+    const msg = document.getElementById(id);
+    if (msg) msg.remove();
+}
+
+function getActiveModel() {
+    const selector = document.getElementById('ai-model-selector');
+    return selector ? selector.value : 'gemini-1.5-flash';
+}
+
+// Initialize AI Model selector
+async function initAIModels() {
+    const selector = document.getElementById('ai-model-selector');
+    if (!selector) return;
+    
+    try {
+        const response = await fetch('/api/get-gemini-models/');
+        const data = await response.json();
+        
+        if (data.models) {
+            selector.innerHTML = '';
+            data.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id || model;
+                option.textContent = model.name || model.id || model;
+                selector.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load models:', error);
+        // Default models
+        selector.innerHTML = `
+            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        `;
+    }
+}
+
+// Duplicate current slide
+async function duplicateSlide() {
+    if (slides.length === 0) return;
+    
+    const slide = slides[currentSlideIndex];
+    const csrfToken = getCSRFToken();
+    if (!csrfToken) {
+        alert('Session expired. Please refresh.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/slides/decks/${deckId}/slides/create/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            // Copy content from current slide
+            data.slide.content = JSON.parse(JSON.stringify(slide.content));
+            data.slide.layout = slide.layout;
+            slides.splice(currentSlideIndex + 1, 0, data.slide);
+            selectSlide(currentSlideIndex + 1);
+            saveSession();
+        }
+    } catch (error) {
+        console.error('Error duplicating slide:', error);
+    }
+}
+
+// Delete current slide
+async function deleteSlide() {
+    if (slides.length <= 1) {
+        alert('Cannot delete the only slide');
+        return;
+    }
+    
+    if (!confirm('Delete this slide?')) return;
+    
+    const slide = slides[currentSlideIndex];
+    const csrfToken = getCSRFToken();
+    
+    try {
+        const response = await fetch(`/api/slides/decks/${deckId}/slides/${slide.id}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            saveSession();
+        }
+    } catch (e) {
+        console.log('Delete error:', e);
+    }
+    
+    // Remove from local array
+    slides.splice(currentSlideIndex, 1);
+    if (currentSlideIndex >= slides.length) currentSlideIndex = slides.length - 1;
+    selectSlide(currentSlideIndex);
+    saveSession();
+}
+
+// Save session with timestamp
+function saveSession() {
+    const sessionData = {
+        slides: slides,
+        currentSlideIndex: currentSlideIndex,
+        lastSaved: new Date().toISOString()
+    };
+    localStorage.setItem(`slide_session_${deckId}`, JSON.stringify(sessionData));
+    showLastSaved();
+}
+
+// Load session
+function loadSession() {
+    const saved = localStorage.getItem(`slide_session_${deckId}`);
+    if (saved) {
+        const sessionData = JSON.parse(saved);
+        // Only restore if from same deck
+        if (sessionData.slides && sessionData.slides.length > 0) {
+            // Merge with server data or use saved
+            showLastSaved();
+        }
+    }
+}
+
+// Show last saved time
+function showLastSaved() {
+    const saved = localStorage.getItem(`slide_session_${deckId}`);
+    const indicator = document.getElementById('save-indicator');
+    if (saved && indicator) {
+        const data = JSON.parse(saved);
+        const date = new Date(data.lastSaved);
+        const timeStr = date.toLocaleString('vi-VN', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit'
+        });
+        indicator.textContent = `Lưu lúc: ${timeStr}`;
+        indicator.classList.remove('opacity-0');
+        setTimeout(() => indicator.classList.add('opacity-0'), 3000);
+    }
+}
+
+// Export menu
+function toggleExportMenu() {
+    const menu = document.getElementById('export-menu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    if (e.key === 'ArrowLeft' && e.ctrlKey) {
+        e.preventDefault();
+        previousSlide();
+    } else if (e.key === 'ArrowRight' && e.ctrlKey) {
+        e.preventDefault();
+        nextSlide();
+    } else if (e.key === 'n' && e.ctrlKey) {
+        e.preventDefault();
+        addNewSlide();
+    } else if (e.key === 'a' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        toggleAIPanel();
+    } else if (e.key === 'd' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        duplicateSlide();
+    } else if (e.key === 'Delete' && e.shiftKey) {
+        e.preventDefault();
+        deleteSlide();
+    }
+});
+
+// Click outside to close export menu
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('export-menu');
+    const btn = e.target.closest('button[onclick="toggleExportMenu()"]');
+    if (menu && !menu.contains(e.target) && !btn) {
+        menu.classList.add('hidden');
+    }
+});
+
+// Utility functions
+function stripMarkdown(text) {
+    if (!text) return '';
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/`(.*?)`/g, '$1')
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+        .trim();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ==================== CANVAS DESIGN API ====================
+
+let canvasPanelOpen = false;
+let canvasFillColor = '#3b82f6';
+let canvasStrokeColor = 'transparent';
+let canvasStrokeWidth = 2;
+let canvasIconColor = '#3b82f6';
+
+function toggleCanvasPanel() {
+    const panel = document.getElementById('canvas-panel');
+    if (!panel) return;
+    
+    canvasPanelOpen = !canvasPanelOpen;
+    if (canvasPanelOpen) {
+        panel.classList.remove('hidden');
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+function switchCanvasTab(tab) {
+    // Update tab buttons
+    ['shapes', 'icons', 'images', 'effects', 'background', 'animate'].forEach(t => {
+        const btn = document.getElementById(`canvas-tab-${t}`);
+        const content = document.getElementById(`canvas-content-${t}`);
+
+        if (t === tab) {
+            btn?.classList.add('text-emerald-400', 'border-emerald-500', 'bg-emerald-500/10');
+            btn?.classList.remove('text-zinc-400', 'border-transparent');
+            content?.classList.remove('hidden');
+        } else {
+            btn?.classList.remove('text-emerald-400', 'border-emerald-500', 'bg-emerald-500/10');
+            btn?.classList.add('text-zinc-400', 'border-transparent');
+            content?.classList.add('hidden');
+        }
+    });
+}
+
+// Background functions
+function applySlideBackground(background) {
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+
+    if (background === 'transparent') {
+        preview.style.background = '';
+        if (slides[currentSlideIndex]) {
+            delete slides[currentSlideIndex].background;
+        }
+    } else {
+        preview.style.background = background;
+        if (slides[currentSlideIndex]) {
+            slides[currentSlideIndex].background = background;
+        }
+    }
+
+    addElementToSlideContent({
+        type: 'background',
+        value: background
+    });
+    markAsModified();
+}
+
+function applySlideBackgroundImage(url) {
+    if (!url) return;
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+
+    preview.style.background = `url(${url}) center/cover no-repeat`;
+    if (slides[currentSlideIndex]) {
+        slides[currentSlideIndex].background = `url(${url}) center/cover no-repeat`;
+    }
+
+    addElementToSlideContent({
+        type: 'background',
+        value: `url(${url})`,
+        imageUrl: url
+    });
+    markAsModified();
+}
+
+// Animation functions
+let currentAnimationDuration = '0.5s';
+
+function applySlideAnimation(animName, duration) {
+    if (!slides[currentSlideIndex]) return;
+
+    const durationToUse = duration || currentAnimationDuration;
+
+    if (!slides[currentSlideIndex].animations) {
+        slides[currentSlideIndex].animations = [];
+    }
+
+    slides[currentSlideIndex].animations = [{
+        name: animName,
+        duration: durationToUse,
+        timing: 'ease'
+    }];
+
+    // Apply immediately
+    const preview = document.getElementById('slide-preview');
+    if (preview) {
+        preview.style.animation = 'none';
+        preview.offsetHeight; // Trigger reflow
+        preview.style.animation = `${animName} ${durationToUse} ease`;
+    }
+
+    addElementToSlideContent({
+        type: 'animation',
+        animation: animName,
+        duration: durationToUse
+    });
+    markAsModified();
+}
+
+function setAnimationDuration(duration) {
+    currentAnimationDuration = duration;
+    // Update button styles
+    document.querySelectorAll('[onclick^="setAnimationDuration"]').forEach(btn => {
+        btn.classList.remove('bg-emerald-600', 'text-white');
+        btn.classList.add('bg-zinc-800', 'text-zinc-300');
+    });
+    event.target.classList.remove('bg-zinc-800', 'text-zinc-300');
+    event.target.classList.add('bg-emerald-600', 'text-white');
+}
+
+function previewCurrentAnimation() {
+    const preview = document.getElementById('slide-preview');
+    if (!preview || !slides[currentSlideIndex]) return;
+
+    const anims = slides[currentSlideIndex].animations;
+    if (!anims || anims.length === 0) {
+        // Apply a default animation
+        preview.style.animation = 'none';
+        preview.offsetHeight;
+        preview.style.animation = 'fadeIn 0.5s ease';
+        return;
+    }
+
+    const anim = anims[0];
+    preview.style.animation = 'none';
+    preview.offsetHeight; // Trigger reflow
+    preview.style.animation = `${anim.name} ${anim.duration} ${anim.timing}`;
+}
+
+// DuckDuckGo Image Search (using existing endpoint)
+async function searchDuckDuckGoImages() {
+    const query = document.getElementById('unsplash-search-input').value.trim();
+    if (!query) return;
+
+    const resultsContainer = document.getElementById('unsplash-results');
+    const noteContainer = document.getElementById('unsplash-note');
+
+    // Show loading
+    resultsContainer.innerHTML = `
+        <div class="col-span-2 flex items-center justify-center py-8">
+            <svg class="w-6 h-6 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="ml-2 text-sm text-zinc-400">Searching DuckDuckGo...</span>
+        </div>
+    `;
+
+    try {
+        // Try DuckDuckGo first (free, no API key needed)
+        const response = await fetch(`/api/slides/search-image/?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+
+        if (data.status === 'success' && data.image_url) {
+            // DuckDuckGo returns single image, show it
+            resultsContainer.innerHTML = '';
+
+            const imgDiv = document.createElement('div');
+            imgDiv.className = 'col-span-2 aspect-video bg-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all relative';
+            imgDiv.onclick = () => addCanvasImage(data.image_url, data.title || query);
+            imgDiv.innerHTML = `
+                <img src="${data.thumbnail || data.image_url}" alt="${data.title || ''}" class="w-full h-full object-cover" loading="lazy">
+                <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-[10px] text-white px-2 py-1 truncate">${data.source || 'DuckDuckGo'}</div>
+            `;
+            resultsContainer.appendChild(imgDiv);
+
+            noteContainer.textContent = 'Image from DuckDuckGo search';
+            noteContainer.classList.remove('hidden');
+        } else {
+            // Fallback to Unsplash
+            await searchUnsplashImages();
+        }
+    } catch (err) {
+        console.error('DuckDuckGo search error:', err);
+        // Fallback to Unsplash
+        await searchUnsplashImages();
+    }
+}
+
+// Search Unsplash images
+async function searchUnsplashImages() {
+    const query = document.getElementById('unsplash-search-input').value.trim();
+    if (!query) return;
+
+    const resultsContainer = document.getElementById('unsplash-results');
+    const noteContainer = document.getElementById('unsplash-note');
+
+    // Show loading
+    resultsContainer.innerHTML = `
+        <div class="col-span-2 flex items-center justify-center py-8">
+            <svg class="w-6 h-6 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="ml-2 text-sm text-zinc-400">Searching...</span>
+        </div>
+    `;
+
+    try {
+        const response = await fetch(`/api/slides/search-unsplash/?q=${encodeURIComponent(query)}&per_page=8`);
+        const data = await response.json();
+
+        if (data.status === 'success' && data.images) {
+            resultsContainer.innerHTML = '';
+
+            data.images.forEach((img, idx) => {
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'aspect-video bg-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all relative group';
+                imgDiv.onclick = () => addCanvasImage(img.url, img.description || query);
+                imgDiv.innerHTML = `
+                    <img src="${img.thumb}" alt="${img.description || ''}" class="w-full h-full object-cover" loading="lazy">
+                    ${img.author ? `<div class="absolute bottom-0 left-0 right-0 bg-black/60 text-[10px] text-white px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity truncate">${img.author}</div>` : ''}
+                `;
+                resultsContainer.appendChild(imgDiv);
+            });
+
+            // Show note
+            if (data.note) {
+                noteContainer.textContent = data.note;
+                noteContainer.classList.remove('hidden');
+            }
+        } else {
+            resultsContainer.innerHTML = `
+                <div class="col-span-2 text-center py-8 text-zinc-500 text-sm">
+                    No images found for "${query}"
+                </div>
+            `;
+        }
+    } catch (err) {
+        console.error('Search error:', err);
+        resultsContainer.innerHTML = `
+            <div class="col-span-2 text-center py-8 text-red-400 text-sm">
+                Error searching images. Please try again.
+            </div>
+        `;
+    }
+}
+
+// Add image to canvas
+function addCanvasImage(imageUrl, altText = '') {
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+
+    const imgContainer = document.createElement('div');
+    imgContainer.className = 'absolute cursor-move hover:ring-2 hover:ring-emerald-400 transition-all';
+    imgContainer.style.left = '50%';
+    imgContainer.style.top = '50%';
+    imgContainer.style.transform = 'translate(-50%, -50%)';
+    imgContainer.style.maxWidth = '60%';
+    imgContainer.style.maxHeight = '60%';
+
+    imgContainer.innerHTML = `<img src="${imageUrl}" alt="${altText}" class="max-w-full max-h-full rounded-lg shadow-lg" style="display: block;">`;
+
+    preview.appendChild(imgContainer);
+
+    // Make draggable with position tracking
+    makeDraggable(imgContainer, (x, y) => {
+        // Update stored position when dragged
+        updateElementPosition(imgContainer, x, y);
+    });
+
+    // Add to slide content with position
+    addElementToSlideContent({
+        type: 'image',
+        src: imageUrl,
+        alt: altText,
+        position: { x: 50, y: 50 }, // Percentage
+        size: { width: '60%', height: 'auto' }
+    });
+}
+
+// Update element position after drag
+function updateElementPosition(element, x, y) {
+    // Convert pixel offset to percentage for responsive saving
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+
+    const rect = preview.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    // Calculate percentage from center
+    const percentX = ((centerX + x) / rect.width) * 100;
+    const percentY = ((centerY + y) / rect.height) * 100;
+
+    // Store position data on element
+    element.dataset.posX = percentX;
+    element.dataset.posY = percentY;
+}
+
+function setCanvasColor(type, color) {
+    if (type === 'fill') {
+        canvasFillColor = color;
+    } else if (type === 'stroke') {
+        canvasStrokeColor = color;
+    }
+}
+
+function updateCanvasStrokeWidth(value) {
+    canvasStrokeWidth = parseInt(value) || 0;
+}
+
+function setCanvasIconColor(color) {
+    canvasIconColor = color;
+}
+
+function addCanvasShape(shapeType) {
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+
+    const shapeDiv = createShapeElement(shapeType);
+    if (!shapeDiv) return;
+
+    // Position at center
+    shapeDiv.style.left = '50%';
+    shapeDiv.style.top = '50%';
+    shapeDiv.dataset.posX = 50;
+    shapeDiv.dataset.posY = 50;
+
+    preview.appendChild(shapeDiv);
+
+    // Make draggable with position tracking
+    makeDraggable(shapeDiv, (x, y) => {
+        updateElementPosition(shapeDiv, x, y);
+    });
+
+    // Add to slide content
+    addElementToSlideContent({
+        type: 'shape',
+        shape: shapeType,
+        fill: canvasFillColor,
+        stroke: canvasStrokeColor,
+        strokeWidth: canvasStrokeWidth,
+        position: { x: 50, y: 50 }
+    });
+}
+
+function addCanvasIcon(iconType) {
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+
+    const iconDiv = createIconElement(iconType);
+    if (!iconDiv) return;
+
+    // Position at center
+    iconDiv.style.left = '50%';
+    iconDiv.style.top = '50%';
+    iconDiv.dataset.posX = 50;
+    iconDiv.dataset.posY = 50;
+
+    preview.appendChild(iconDiv);
+
+    // Make draggable with position tracking
+    makeDraggable(iconDiv, (x, y) => {
+        updateElementPosition(iconDiv, x, y);
+    });
+
+    addElementToSlideContent({
+        type: 'icon',
+        icon: iconType,
+        color: canvasIconColor,
+        position: { x: 50, y: 50 }
+    });
+}
+
+function applyCanvasFilter(filterType) {
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+    
+    let filterValue = '';
+    switch(filterType) {
+        case 'blur': filterValue = 'blur(4px)'; break;
+        case 'brightness': filterValue = 'brightness(1.2)'; break;
+        case 'contrast': filterValue = 'contrast(1.3)'; break;
+        case 'grayscale': filterValue = 'grayscale(100%)'; break;
+        case 'sepia': filterValue = 'sepia(100%)'; break;
+        case 'hue-rotate': filterValue = 'hue-rotate(90deg)'; break;
+    }
+    
+    preview.style.filter = filterValue;
+    
+    addElementToSlideContent({
+        type: 'filter',
+        filter: filterType,
+        value: filterValue
+    });
+}
+
+function applyCanvasShadow(shadowType) {
+    const preview = document.getElementById('slide-preview');
+    if (!preview) return;
+    
+    let shadowValue = '';
+    switch(shadowType) {
+        case 'drop': shadowValue = '0 4px 6px rgba(0,0,0,0.3)'; break;
+        case 'inner': shadowValue = 'inset 0 2px 4px rgba(0,0,0,0.3)'; break;
+        case 'glow': shadowValue = '0 0 20px rgba(59, 130, 246, 0.5)'; break;
+        case 'neon': shadowValue = '0 0 10px rgba(255,0,255,0.8), 0 0 20px rgba(255,0,255,0.4)'; break;
+    }
+    
+    preview.style.boxShadow = shadowValue;
+    
+    addElementToSlideContent({
+        type: 'shadow',
+        shadow: shadowType,
+        value: shadowValue
+    });
+}
+
+function applyCanvasGradient(gradientType) {
+    const preview = document.getElementById('slide-preview-container');
+    if (!preview) return;
+    
+    let gradientValue = '';
+    switch(gradientType) {
+        case 'linear-blue': gradientValue = 'linear-gradient(135deg, #3b82f6, #06b6d4)'; break;
+        case 'linear-purple': gradientValue = 'linear-gradient(135deg, #a855f7, #ec4899)'; break;
+        case 'linear-green': gradientValue = 'linear-gradient(135deg, #10b981, #14b8a6)'; break;
+        case 'linear-orange': gradientValue = 'linear-gradient(135deg, #f97316, #ef4444)'; break;
+        case 'radial-sunset': gradientValue = 'radial-gradient(circle at center, #fbbf24, #f97316, #dc2626)'; break;
+    }
+    
+    preview.style.background = gradientValue;
+    
+    addElementToSlideContent({
+        type: 'gradient',
+        gradient: gradientType,
+        value: gradientValue
+    });
+}
+
+function makeDraggable(element, onDragEnd = null) {
+    let isDragging = false;
+    let currentX, currentY, initialX, initialY;
+    let xOffset = 0, yOffset = 0;
+
+    element.addEventListener('mousedown', dragStart);
+    element.addEventListener('touchstart', dragStart, {passive: false});
+
+    function dragStart(e) {
+        if (e.type === 'touchstart') {
+            initialX = e.touches[0].clientX - xOffset;
+            initialY = e.touches[0].clientY - yOffset;
+        } else {
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+        }
+
+        if (e.target === element || element.contains(e.target)) {
+            isDragging = true;
+            element.style.cursor = 'grabbing';
+        }
+    }
+
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('touchmove', drag, {passive: false});
+    document.addEventListener('mouseup', dragEnd);
+    document.addEventListener('touchend', dragEnd);
+
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+
+            if (e.type === 'touchmove') {
+                currentX = e.touches[0].clientX - initialX;
+                currentY = e.touches[0].clientY - initialY;
+            } else {
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+            }
+
+            xOffset = currentX;
+            yOffset = currentY;
+
+            element.style.transform = `translate(calc(-50% + ${currentX}px), calc(-50% + ${currentY}px))`;
+        }
+    }
+
+    function dragEnd() {
+        if (isDragging) {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
+            element.style.cursor = 'move';
+
+            // Call callback with final position
+            if (onDragEnd && typeof onDragEnd === 'function') {
+                onDragEnd(currentX, currentY);
+            }
+
+            // Auto-save after drag
+            markAsModified();
+        }
+    }
+}
+
+// Save current canvas elements with their positions
+function saveCurrentCanvasElements() {
+    const preview = document.getElementById('slide-preview');
+    if (!preview || !slides[currentSlideIndex]) return;
+
+    const canvasElements = [];
+    const elements = preview.querySelectorAll('[class*="absolute cursor-move"]');
+
+    elements.forEach(el => {
+        const posX = el.dataset.posX || 50;
+        const posY = el.dataset.posY || 50;
+
+        // Detect element type from content
+        let type = 'unknown';
+        let data = { position: { x: parseFloat(posX), y: parseFloat(posY) } };
+
+        if (el.querySelector('img')) {
+            const img = el.querySelector('img');
+            type = 'image';
+            data.src = img.src;
+            data.alt = img.alt || '';
+            data.size = { width: el.style.maxWidth, height: el.style.maxHeight };
+        } else if (el.querySelector('svg')) {
+            const svg = el.querySelector('svg');
+            // Check if icon or shape
+            if (el.innerHTML.includes('stroke="currentColor"')) {
+                type = 'icon';
+                data.color = el.style.color;
+            } else {
+                type = 'shape';
+                data.fill = svg.getAttribute('fill') || '#3b82f6';
+                data.stroke = svg.getAttribute('stroke') || 'transparent';
+                data.strokeWidth = svg.getAttribute('stroke-width') || 2;
+            }
+        }
+
+        if (type !== 'unknown') {
+            data.type = type;
+            canvasElements.push(data);
+        }
+    });
+
+    slides[currentSlideIndex].canvasElements = canvasElements;
+}
+
+// Load canvas elements when switching slides
+function loadCanvasElements(slideData) {
+    const preview = document.getElementById('slide-preview');
+    if (!preview || !slideData.canvasElements) return;
+
+    // Clear existing canvas elements (keep base content)
+    const existingCanvas = preview.querySelectorAll('.canvas-element');
+    existingCanvas.forEach(el => el.remove());
+
+    // Re-create elements from saved data
+    slideData.canvasElements.forEach(elData => {
+        if (elData.type === 'image') {
+            addCanvasImage(elData.src, elData.alt);
+        } else if (elData.type === 'shape') {
+            // Restore shape
+            canvasFillColor = elData.fill;
+            canvasStrokeColor = elData.stroke;
+            canvasStrokeWidth = elData.strokeWidth;
+            addCanvasShape(elData.shape);
+        } else if (elData.type === 'icon') {
+            canvasIconColor = elData.color;
+            addCanvasIcon(elData.icon);
+        }
+
+        // Restore position if saved
+        const lastElement = preview.lastElementChild;
+        if (lastElement && elData.position) {
+            lastElement.style.left = elData.position.x + '%';
+            lastElement.style.top = elData.position.y + '%';
+        }
+    });
+}
+
+function addElementToSlideContent(element) {
+    // Add canvas element to current slide content
+    if (slides[currentSlideIndex]) {
+        if (!slides[currentSlideIndex].canvasElements) {
+            slides[currentSlideIndex].canvasElements = [];
+        }
+        slides[currentSlideIndex].canvasElements.push(element);
+        markAsModified();
+    }
+}
+
+// Mark slide as modified and auto-save
+function markAsModified() {
+    const indicator = document.getElementById('save-indicator');
+    if (indicator) {
+        indicator.textContent = 'Modified';
+        indicator.classList.remove('opacity-0');
+        indicator.classList.add('text-amber-400');
+        indicator.classList.remove('text-zinc-500');
+    }
+    // Auto-save to session
+    saveSession();
+}
+
+// Keyboard shortcut for Canvas panel
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'c' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        toggleCanvasPanel();
+    }
+});
+
+// Initialize
+init();
+</script>
+</body>
+</html>

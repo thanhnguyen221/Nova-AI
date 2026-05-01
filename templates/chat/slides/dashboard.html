@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% load pro_tags %}
+{% block title %}Presentations - Nova AI{% endblock %}
+
+{% block content %}
+{% if not user|is_pro_user %}
+<!-- Non-Pro User - Show Upgrade Overlay -->
+<div class="fixed inset-0 z-50 bg-zinc-950 flex items-center justify-center p-4">
+    <div class="max-w-md w-full text-center">
+        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-800 mb-6">
+            <svg class="w-10 h-10 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+        </div>
+
+        <h1 class="text-2xl font-bold text-white mb-2">Tính năng này cần Pro 🔒</h1>
+        <p class="text-zinc-400 mb-6">Nâng cấp lên Pro để sử dụng tính năng Presentations và tạo slide bằng AI.</p>
+
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 mb-6">
+            <div class="flex items-center justify-center space-x-2 mb-4">
+                <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                </svg>
+                <span class="text-xl font-bold text-white">Nova AI Pro</span>
+            </div>
+            <p class="text-3xl font-bold text-white mb-2">2.000đ<span class="text-lg font-normal text-zinc-500">/tháng</span></p>
+            <ul class="mt-4 space-y-2 text-sm text-zinc-400 text-left">
+                <li class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span>Trình chiếu AI</span>
+                </li>
+                <li class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span>Xuất file PPTX, PDF</span>
+                </li>
+                <li class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span>Tạo slide bằng AI</span>
+                </li>
+            </ul>
+        </div>
+
+        <a href="{% url 'index' %}" onclick="sessionStorage.setItem('showUpgradeModal', 'true');" class="inline-flex items-center justify-center space-x-2 w-full py-3 px-6 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 rounded-xl text-white font-semibold shadow-lg shadow-amber-500/20 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <span>Nâng cấp ngay</span>
+        </a>
+
+        <a href="{% url 'index' %}" class="inline-block mt-4 text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
+            ← Quay lại Chat
+        </a>
+    </div>
+</div>
+{% else %}
+<!-- Pro User - Show Full Dashboard -->
+<div class="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950">
+    <!-- Modern Header -->
+    <header class="sticky top-0 z-50 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Left: Back button -->
+                <a href="{% url 'index' %}" class="flex items-center gap-2 text-zinc-400 hover:text-white transition-all hover:gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-zinc-800/80 flex items-center justify-center hover:bg-zinc-700 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
+                    </div>
+                    <span class="text-sm font-medium">Back</span>
+                </a>
+
+                <!-- Center: Title only -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-semibold text-white">Presentations</h1>
+                        <p class="text-xs text-zinc-500">{{ decks|length }} deck{{ decks|length|pluralize:"s" }}</p>
+                    </div>
+                </div>
+
+                <!-- Right: Create Button -->
+                <button onclick="createNewDeck()" class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-lg transition-all shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 font-medium text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    New
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% if decks %}
+        <!-- Decks Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {% for deck in decks %}
+            <div class="group bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all hover:shadow-lg hover:shadow-indigo-500/10">
+                <!-- Slide Preview -->
+                <a href="{% url 'slide_editor' deck.id %}" class="block aspect-video bg-zinc-800/50 relative overflow-hidden group cursor-pointer">
+                    <div class="absolute inset-4 bg-gradient-to-br from-zinc-700 to-zinc-600 rounded-lg shadow-xl flex flex-col items-center justify-center p-2">
+                        <svg class="w-8 h-8 text-zinc-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+                        <span class="text-xs text-zinc-400 font-medium text-center line-clamp-2">
+                            {{ deck.title }}
+                        </span>
+                        {% if deck.slide_count > 0 %}
+                        <span class="mt-2 text-xs text-slate-400">
+                            {{ deck.slide_count }} slides
+                        </span>
+                        {% endif %}
+                    </div>
+                    <!-- Hover Actions -->
+                    <div class="absolute inset-0 bg-zinc-900/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                        <span class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg">
+                            Open Project
+                        </span>
+                    </div>
+                </a>
+                
+                <!-- Info -->
+                <div class="p-4">
+                    <a href="{% url 'slide_editor' deck.id %}" class="block">
+                        <h3 class="font-semibold text-white truncate mb-1 group-hover:text-indigo-400 transition-colors">{{ deck.title }}</h3>
+                    </a>
+                    <div class="flex items-center gap-3 text-xs text-zinc-500">
+                        <span class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            {{ deck.updated_at|date:"M d" }}
+                        </span>
+                        <span class="w-1 h-1 rounded-full bg-zinc-600"></span>
+                        <span>{{ deck.aspect_ratio }}</span>
+                    </div>
+                    
+                    <!-- Tags & Actions -->
+                    <div class="mt-3 flex items-center justify-between">
+                        <span class="px-2 py-1 text-xs rounded-md bg-zinc-800 text-zinc-400 border border-zinc-700/50">
+                            {{ deck.get_theme_display }}
+                        </span>
+                        <div class="flex items-center gap-1">
+                            <a href="{% url 'slide_editor' deck.id %}" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white text-xs rounded-lg transition-all flex items-center gap-1" title="Continue Editing">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                </svg>
+                                Continue
+                            </a>
+                            <a href="{% url 'slide_present' deck.id %}" target="_blank" class="p-1.5 text-zinc-500 hover:text-green-400 hover:bg-zinc-800 rounded-lg transition-colors" title="Present">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </a>
+                            <button onclick="deleteDeck({{ deck.id }})" class="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Beautiful Empty State -->
+        <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
+            <div class="relative mb-8">
+                <div class="w-32 h-32 rounded-3xl bg-gradient-to-br from-indigo-500/20 to-violet-600/20 flex items-center justify-center border border-indigo-500/20">
+                    <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-indigo-500/30">
+                        <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="absolute -bottom-2 -right-2 w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center shadow-lg">
+                    <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                </div>
+            </div>
+            <h2 class="text-3xl font-bold text-white mb-3">Create your first presentation</h2>
+            <p class="text-zinc-400 max-w-md mb-8">Design beautiful slides with AI assistance. Export to PowerPoint, PDF, or present directly from the browser.</p>
+            <div class="flex items-center gap-4">
+                <button onclick="createNewDeck()" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Create Presentation
+                </button>
+                <a href="{% url 'index' %}" class="px-6 py-3 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 text-white rounded-xl font-medium transition-colors">
+                    Back to Chat
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+{% csrf_token %}
+
+<!-- Modern Create Modal with AI Prompt -->
+<div id="create-modal" class="hidden fixed inset-0 z-50">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeCreateModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold text-white">New Presentation</h2>
+                    <p class="text-sm text-zinc-500">Create with optional AI assistance</p>
+                </div>
+            </div>
+            
+            <form id="create-deck-form" onsubmit="submitCreateDeck(event)">
+                <div class="space-y-5">
+                    <div>
+                        <label for="deck-title" class="block text-sm font-medium text-zinc-400 mb-2">
+                            Title <span class="text-red-400">*</span>
+                        </label>
+                        <input type="text" id="deck-title" name="title" required 
+                            class="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                            placeholder="e.g., Q4 Marketing Report">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="deck-theme" class="block text-sm font-medium text-zinc-400 mb-2">Theme</label>
+                            <select id="deck-theme" name="theme" class="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                                <option value="modern">Modern Dark</option>
+                                <option value="light">Clean Light</option>
+                                <option value="gradient">Gradient Pop</option>
+                                <option value="minimal">Minimal White</option>
+                                <option value="corporate">Corporate Blue</option>
+                                <option value="creative">Creative Purple</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="deck-ratio" class="block text-sm font-medium text-zinc-400 mb-2">Aspect Ratio</label>
+                            <select id="deck-ratio" name="aspect_ratio" class="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                                <option value="16:9">16:9 Widescreen</option>
+                                <option value="4:3">4:3 Standard</option>
+                                <option value="21:9">21:9 Ultrawide</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- AI Prompt Textarea -->
+                    <div>
+                        <label for="ai-prompt" class="block text-sm font-medium text-zinc-400 mb-2">
+                            AI Assistant <span class="text-xs text-zinc-500">(Optional)</span>
+                        </label>
+                        <textarea id="ai-prompt" name="ai_prompt" rows="3"
+                            class="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none"
+                            placeholder="Describe what you want to create. AI will generate slides for you...
+Example: 'A 5-slide presentation about the benefits of remote work, including statistics and best practices.'"></textarea>
+                        <p class="mt-1.5 text-xs text-zinc-500">Leave empty to start with a blank presentation</p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-zinc-800">
+                    <button type="button" onclick="closeCreateModal()" class="px-5 py-2.5 text-zinc-400 hover:text-white font-medium transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="create-btn" class="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-indigo-500/20">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Create</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function createNewDeck() {
+    document.getElementById('create-modal').classList.remove('hidden');
+    document.getElementById('deck-title').focus();
+}
+
+function closeCreateModal() {
+    document.getElementById('create-modal').classList.add('hidden');
+    document.getElementById('create-deck-form').reset();
+}
+
+async function submitCreateDeck(e) {
+    e.preventDefault();
+    const btn = document.getElementById('create-btn');
+    const originalText = btn.innerHTML;
+    
+    // Loading state
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Creating...`;
+    
+    const title = document.getElementById('deck-title').value.trim();
+    const theme = document.getElementById('deck-theme').value;
+    const ratio = document.getElementById('deck-ratio').value;
+    const aiPrompt = document.getElementById('ai-prompt').value.trim();
+    
+    if (!title) {
+        alert('Please enter a title');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "create_deck" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                title: title,
+                theme: theme,
+                aspect_ratio: ratio,
+                ai_prompt: aiPrompt
+            })
+        });
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            window.location.href = `/slides/editor/${data.deck.id}/`;
+        } else {
+            alert('Error: ' + data.message);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+async function duplicateDeck(deckId) {
+    try {
+        const response = await fetch(`/api/slides/decks/${deckId}/duplicate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            window.location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function deleteDeck(deckId) {
+    if (!confirm('Are you sure you want to delete this presentation?')) return;
+    
+    try {
+        const response = await fetch(`/api/slides/decks/${deckId}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            window.location.reload();
+        } else {
+            alert('Error deleting: ' + data.message);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+function toggleExportMenu(deckId) {
+    const menu = document.getElementById(`export-menu-${deckId}`);
+    menu.classList.toggle('hidden');
+    
+    // Close other menus
+    document.querySelectorAll('[id^="export-menu-"]').forEach(m => {
+        if (m.id !== `export-menu-${deckId}`) m.classList.add('hidden');
+    });
+}
+
+// Close menus when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('[id^="export-menu-"]') && !e.target.closest('button[onclick^="toggleExportMenu"]')) {
+        document.querySelectorAll('[id^="export-menu-"]').forEach(m => m.classList.add('hidden'));
+    }
+});
+
+// Close modal on outside click
+document.getElementById('create-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeCreateModal();
+});
+</script>
+{% endif %}
+{% endblock %}

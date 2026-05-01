@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Nova AI{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/output.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        /* NÂNG CẤP 2: Custom Thanh cuộn (Scrollbar) chuẩn Dark Mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f3f46; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #52525b; 
+        }
+
+        /* Các class cũ của sếp giữ nguyên, tui tinh chỉnh lại màu chút xíu cho sang */
+        .thinking-container {
+            background: linear-gradient(135deg, #18181b 0%, #09090b 100%);
+            border-left: 3px solid #3b82f6; /* Đổi sang màu xanh dương cho dịu mắt */
+        }
+        .thinking-header {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .thinking-header:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        .thinking-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .thinking-content.expanded {
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
+        }
+        .message-user {
+            background: #27272a; /* Màu Zinc-800, sang và không bị chóe */
+        }
+        .message-ai {
+            background-color: transparent;
+        }
+        .chat-input:focus {
+            box-shadow: 0 0 0 2px rgba(82, 82, 91, 0.5);
+        }
+        .sidebar-conversation {
+            transition: all 0.2s ease;
+        }
+        .sidebar-conversation:hover {
+            background-color: #27272a;
+        }
+        .sidebar-conversation.active {
+            background-color: #27272a;
+            border-left: 3px solid #e4e4e7;
+        }
+        
+        /* NÂNG CẤP 3: Bo viền và scroll ngang cho Code Block (Tránh vỡ layout) */
+        pre {
+            background-color: #282c34 !important; /* Khớp với màu Atom One Dark */
+            border-radius: 0.75rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            overflow-x: auto;
+            border: 1px solid #3f3f46;
+        }
+        code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.875rem;
+        }
+        
+        .streaming-cursor::after {
+            content: '▋';
+            animation: blink 1s infinite;
+            color: #a1a1aa; /* Màu chì cho tinh tế */
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-[#09090b] text-zinc-300 min-h-screen font-sans antialiased selection:bg-zinc-700 selection:text-white">
+    {% block content %}{% endblock %}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

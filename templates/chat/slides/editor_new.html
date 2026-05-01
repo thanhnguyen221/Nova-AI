@@ -1,0 +1,642 @@
+{% extends 'chat/base.html' %}
+{% block title %}{{ deck.title }} - Slide Editor{% endblock %}
+{% block content %}
+<!-- Editor Layout -->
+<div class="h-screen flex flex-col bg-zinc-950">
+    <!-- Top Toolbar -->
+    <div class="h-14 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 shrink-0">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'slide_dashboard' %}" class="text-zinc-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+            </a>
+            <h1 class="text-white font-semibold truncate max-w-xs">{{ deck.title }}</h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <!-- Navigation -->
+            <div class="flex items-center gap-1 bg-zinc-800 rounded-lg p-1">
+                <button onclick="previousSlide()" class="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <span id="slide-counter" class="text-sm text-zinc-400 px-2">1 / 1</span>
+                <button onclick="nextSlide()" class="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Actions -->
+            <button onclick="addNewSlide()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Slide
+            </button>
+            
+            <div class="relative">
+                <button onclick="toggleExportMenu()" class="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                </button>
+                <div id="export-menu" class="hidden absolute right-0 top-full mt-2 w-40 bg-zinc-800 rounded-lg shadow-xl border border-zinc-700 py-1 z-50">
+                    <a href="{% url 'export_pptx' deck.id %}" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700">PowerPoint (.pptx)</a>
+                    <a href="{% url 'export_pdf' deck.id %}" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700">PDF (.pdf)</a>
+                    <a href="{% url 'present_deck' deck.id %}" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700">Present Mode</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Left Sidebar - Thumbnails -->
+        <div class="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+            <div class="p-3 border-b border-zinc-800">
+                <h3 class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Slides</h3>
+            </div>
+            <div id="slides-thumbnails" class="flex-1 overflow-y-auto p-3 space-y-2">
+                <!-- Thumbnails rendered here -->
+            </div>
+            <div class="p-3 border-t border-zinc-800">
+                <button onclick="addNewSlide()" class="w-full py-2 border border-dashed border-zinc-600 hover:border-indigo-500 hover:text-indigo-400 text-zinc-500 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Add Slide
+                </button>
+            </div>
+        </div>
+        
+        <!-- Center - Preview -->
+        <div class="flex-1 bg-zinc-950 flex flex-col">
+            <div class="flex-1 flex items-center justify-center p-8 overflow-auto">
+                <div id="slide-preview-container" class="relative bg-white rounded-lg shadow-2xl overflow-hidden" style="aspect-ratio: 16/9; max-width: 100%; max-height: 100%;">
+                    <div id="slide-preview" class="w-full h-full p-8 flex flex-col items-center justify-center">
+                        <!-- Slide content rendered here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Controls -->
+            <div class="h-12 bg-zinc-900 border-t border-zinc-800 flex items-center justify-center gap-4 px-4">
+                <select id="ratio-selector" onchange="updateDeckRatio(this.value)" class="bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm rounded px-3 py-1">
+                    <option value="16:9" {% if deck.aspect_ratio == '16:9' %}selected{% endif %}>16:9</option>
+                    <option value="4:3" {% if deck.aspect_ratio == '4:3' %}selected{% endif %}>4:3</option>
+                    <option value="21:9" {% if deck.aspect_ratio == '21:9' %}selected{% endif %}>21:9</option>
+                </select>
+                
+                <button onclick="toggleAIPanel()" class="flex items-center gap-2 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    AI Assistant
+                    <span class="text-xs text-zinc-500">Ctrl+Shift+A</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Right Sidebar - Editor -->
+        <div class="w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col">
+            <div class="p-3 border-b border-zinc-800">
+                <h3 class="text-xs font-medium text-zinc-400 uppercase tracking-wider">Properties</h3>
+            </div>
+            
+            <div id="content-editor" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- Editor fields rendered here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- AI Assistant Panel (Collapsible) -->
+    <div id="ai-panel" class="h-0 bg-zinc-900 border-t border-zinc-800 overflow-hidden transition-all duration-300 flex flex-col">
+        <div class="flex items-center justify-between p-3 border-b border-zinc-800">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-medium text-zinc-200">AI Assistant</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <select id="ai-model-selector" onchange="updateAIModel(this.value)" class="bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded px-2 py-1">
+                    <!-- Models loaded dynamically -->
+                </select>
+                <button onclick="toggleAIPanel()" class="p-1 hover:bg-zinc-800 rounded text-zinc-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex-1 flex overflow-hidden">
+            <div id="ai-messages" class="flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- AI messages rendered here -->
+            </div>
+        </div>
+        
+        <div class="p-3 border-t border-zinc-800">
+            <form onsubmit="sendAIMessage(event)" class="flex gap-2">
+                <div class="flex-1 relative">
+                    <input type="text" id="ai-input" placeholder="Ask AI to help with your slide..." 
+                        class="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                        autocomplete="off">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">
+                    Send
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initial data
+const deckId = {{ deck.id }};
+const initialSlides = JSON.parse('{{ slides_json|escapejs }}');
+const initialTheme = JSON.parse('{{ theme_config_json|escapejs }}');
+
+// State
+let slides = initialSlides;
+let currentSlideIndex = 0;
+let currentTheme = initialTheme;
+let aiConversation = [];
+
+// DOM Elements
+const previewContainer = document.getElementById('slide-preview-container');
+const preview = document.getElementById('slide-preview');
+const thumbnailsContainer = document.getElementById('slides-thumbnails');
+const contentEditor = document.getElementById('content-editor');
+
+// Initialize
+function init() {
+    renderThumbnails();
+    updatePreviewSize();
+    renderCurrentSlide();
+    renderEditor();
+    updateSlideCounter();
+    initAIModel();
+}
+
+// AI Model selection
+async function initAIModel() {
+    const selector = document.getElementById('ai-model-selector');
+    if (!selector) return;
+    
+    try {
+        const response = await fetch('/api/get-gemini-models/');
+        const models = await response.json();
+        
+        selector.innerHTML = models.map(m => 
+            `<option value="${m.id}" ${m.status !== 'AVAILABLE' ? 'disabled' : ''}>${m.name}${m.status !== 'AVAILABLE' ? ' (Unavailable)' : ''}</option>`
+        ).join('');
+        
+        const savedModel = sessionStorage.getItem('slide_ai_model');
+        if (savedModel && selector.querySelector(`option[value="${savedModel}"]:not([disabled])`)) {
+            selector.value = savedModel;
+        }
+    } catch (error) {
+        console.error('Failed to load models:', error);
+        selector.innerHTML = '<option value="gemini-2.0-flash">Gemini 2.0 Flash</option>';
+    }
+}
+
+function updateAIModel(model) {
+    sessionStorage.setItem('slide_ai_model', model);
+}
+
+function getActiveModel() {
+    const selector = document.getElementById('ai-model-selector');
+    return sessionStorage.getItem('slide_ai_model') || (selector?.value || 'gemini-2.0-flash');
+}
+
+// Update preview size based on aspect ratio
+function updatePreviewSize() {
+    const ratioSelector = document.getElementById('ratio-selector');
+    if (!ratioSelector || !previewContainer) return;
+    
+    const ratio = ratioSelector.value;
+    let aspectRatio = '16/9';
+    
+    if (ratio === '4:3') aspectRatio = '4/3';
+    else if (ratio === '21:9') aspectRatio = '21/9';
+    
+    previewContainer.style.aspectRatio = aspectRatio;
+}
+
+function updateDeckRatio(ratio) {
+    updatePreviewSize();
+    // Save to backend
+    fetch(`/api/slides/decks/${deckId}/update/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ aspect_ratio: ratio })
+    }).catch(err => console.error('Error updating ratio:', err));
+}
+
+// Render thumbnails with modern card design
+function renderThumbnails() {
+    if (!thumbnailsContainer) return;
+    
+    thumbnailsContainer.innerHTML = slides.map((slide, index) => {
+        const content = slide.content || {};
+        const title = stripMarkdown(content.title || content.heading || `Slide ${index + 1}`);
+        const hasImage = content.image || content.images?.length > 0;
+        const isActive = index === currentSlideIndex;
+        
+        return `
+        <div onclick="selectSlide(${index})" 
+             class="group relative aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${isActive ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-zinc-700 hover:border-zinc-500'}"
+             style="background: ${currentTheme.bg};">
+            
+            <!-- Slide Number -->
+            <div class="absolute top-2 left-2 z-10">
+                <span class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-medium ${isActive ? 'bg-indigo-500 text-white' : 'bg-zinc-800/80 text-zinc-400'}">
+                    ${index + 1}
+                </span>
+            </div>
+            
+            <!-- Content Preview -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center p-3 pt-6">
+                <div class="text-center w-full">
+                    <div class="text-xs font-medium text-zinc-100 truncate leading-tight">
+                        ${escapeHtml(title.substring(0, 25))}
+                    </div>
+                    ${content.subtitle ? `<div class="text-[10px] text-zinc-500 truncate mt-0.5">${escapeHtml(content.subtitle.substring(0, 30))}</div>` : ''}
+                </div>
+            </div>
+            
+            <!-- Image Indicator -->
+            ${hasImage ? `
+            <div class="absolute top-2 right-2">
+                <svg class="w-3 h-3 text-zinc-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+                </svg>
+            </div>` : ''}
+            
+            <!-- Layout Label -->
+            <div class="absolute bottom-1 right-2">
+                <span class="text-[8px] text-zinc-500 capitalize">${slide.layout}</span>
+            </div>
+            
+            <!-- Active Indicator -->
+            ${isActive ? '<div class="absolute inset-0 bg-indigo-500/5 pointer-events-none"></div>' : ''}
+        </div>
+        `;
+    }).join('');
+}
+
+// Render current slide in preview
+function renderCurrentSlide() {
+    if (!preview || slides.length === 0) return;
+    
+    const slide = slides[currentSlideIndex];
+    const content = slide.content || {};
+    
+    let html = '';
+    
+    switch (slide.layout) {
+        case 'title':
+            html = `
+                <div class="text-center">
+                    <h1 class="text-4xl font-bold text-zinc-900 mb-4">${escapeHtml(content.title || '')}</h1>
+                    ${content.subtitle ? `<p class="text-xl text-zinc-600">${escapeHtml(content.subtitle)}</p>` : ''}
+                </div>
+            `;
+            break;
+        case 'content':
+            html = `
+                <div class="w-full">
+                    <h2 class="text-2xl font-bold text-zinc-900 mb-4">${escapeHtml(content.title || '')}</h2>
+                    ${content.subtitle ? `<p class="text-lg text-zinc-600 mb-4">${escapeHtml(content.subtitle)}</p>` : ''}
+                    ${content.bullets ? `
+                        <ul class="space-y-2">
+                            ${content.bullets.map(b => `<li class="flex items-start gap-2"><span class="text-zinc-400 mt-1">•</span><span class="text-zinc-700">${escapeHtml(b)}</span></li>`).join('')}
+                        </ul>
+                    ` : ''}
+                </div>
+            `;
+            break;
+        default:
+            html = `<div class="text-zinc-400">${slide.layout} layout</div>`;
+    }
+    
+    preview.innerHTML = html;
+}
+
+// Render editor fields
+function renderEditor() {
+    if (!contentEditor || slides.length === 0) return;
+    
+    const slide = slides[currentSlideIndex];
+    const content = slide.content || {};
+    
+    let html = `
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs text-zinc-500 mb-1">Layout</label>
+                <select onchange="changeLayout(this.value)" class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm">
+                    <option value="title" ${slide.layout === 'title' ? 'selected' : ''}>Title Slide</option>
+                    <option value="content" ${slide.layout === 'content' ? 'selected' : ''}>Content</option>
+                    <option value="two-column" ${slide.layout === 'two-column' ? 'selected' : ''}>Two Column</option>
+                    <option value="image-text" ${slide.layout === 'image-text' ? 'selected' : ''}>Image + Text</option>
+                    <option value="quote" ${slide.layout === 'quote' ? 'selected' : ''}>Quote</option>
+                </select>
+            </div>
+    `;
+    
+    if (slide.layout === 'title' || slide.layout === 'content') {
+        html += `
+            <div>
+                <label class="block text-xs text-zinc-500 mb-1">Title</label>
+                <input type="text" value="${escapeHtml(content.title || '')}" 
+                    onchange="updateContent('title', this.value)"
+                    class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm">
+            </div>
+        `;
+        
+        if (slide.layout === 'content') {
+            html += `
+                <div>
+                    <label class="block text-xs text-zinc-500 mb-1">Subtitle</label>
+                    <input type="text" value="${escapeHtml(content.subtitle || '')}" 
+                        onchange="updateContent('subtitle', this.value)"
+                        class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-zinc-500 mb-1">Bullet Points (one per line)</label>
+                    <textarea 
+                        onchange="updateContent('bullets', this.value.split('\\n').filter(b => b.trim()))"
+                        rows="4"
+                        class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1.5 text-sm resize-none">${(content.bullets || []).join('\\n')}</textarea>
+                </div>
+            `;
+        }
+    }
+    
+    html += '</div>';
+    contentEditor.innerHTML = html;
+}
+
+// Update content
+function updateContent(key, value) {
+    if (slides.length === 0) return;
+    slides[currentSlideIndex].content[key] = value;
+    renderCurrentSlide();
+    renderThumbnails();
+    saveSlide();
+}
+
+function changeLayout(newLayout) {
+    if (slides.length === 0) return;
+    slides[currentSlideIndex].layout = newLayout;
+    renderEditor();
+    renderCurrentSlide();
+    renderThumbnails();
+    saveSlide();
+}
+
+// Navigation
+function selectSlide(index) {
+    currentSlideIndex = index;
+    renderCurrentSlide();
+    renderEditor();
+    renderThumbnails();
+    updateSlideCounter();
+}
+
+function nextSlide() {
+    if (currentSlideIndex < slides.length - 1) {
+        selectSlide(currentSlideIndex + 1);
+    }
+}
+
+function previousSlide() {
+    if (currentSlideIndex > 0) {
+        selectSlide(currentSlideIndex - 1);
+    }
+}
+
+function updateSlideCounter() {
+    const counter = document.getElementById('slide-counter');
+    if (counter) {
+        counter.textContent = `${currentSlideIndex + 1} / ${slides.length}`;
+    }
+}
+
+// CRUD Operations
+async function addNewSlide() {
+    try {
+        const response = await fetch(`/api/slides/decks/${deckId}/slides/add/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        });
+        const data = await response.json();
+        if (data.status === 'success') {
+            slides.push(data.slide);
+            selectSlide(slides.length - 1);
+        }
+    } catch (error) {
+        console.error('Error adding slide:', error);
+    }
+}
+
+async function saveSlide() {
+    if (slides.length === 0) return;
+    const slide = slides[currentSlideIndex];
+    
+    try {
+        await fetch(`/api/slides/decks/${deckId}/slides/${slide.id}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                content: slide.content,
+                layout: slide.layout
+            })
+        });
+    } catch (error) {
+        console.error('Error saving slide:', error);
+    }
+}
+
+// AI Panel
+function toggleAIPanel() {
+    const panel = document.getElementById('ai-panel');
+    if (panel) {
+        const isOpen = panel.classList.contains('h-64');
+        panel.classList.toggle('h-64', !isOpen);
+        panel.classList.toggle('h-0', isOpen);
+    }
+}
+
+async function sendAIMessage(event) {
+    event.preventDefault();
+    const input = document.getElementById('ai-input');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    input.value = '';
+    addAIMessage('user', message);
+    
+    try {
+        const response = await fetch('/api/slides/ai/chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                message: message,
+                deck_id: deckId,
+                current_slide: slides[currentSlideIndex],
+                conversation: aiConversation,
+                model: getActiveModel()
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            let responseText = data.response;
+            let slideContent = null;
+            
+            // Extract JSON from response
+            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)```/);
+            if (jsonMatch) {
+                try {
+                    const jsonData = JSON.parse(jsonMatch[1]);
+                    if (jsonData.slide_content) {
+                        slideContent = jsonData.slide_content;
+                    }
+                    responseText = responseText.replace(/```json\s*[\s\S]*?```/, '');
+                } catch (e) {
+                    console.log('Failed to parse JSON');
+                }
+            }
+            
+            responseText = stripMarkdown(responseText);
+            aiConversation.push({ role: 'assistant', content: responseText });
+            addAIMessage('assistant', responseText);
+            
+            if (slideContent || data.slide_content) {
+                const content = slideContent || data.slide_content;
+                Object.assign(slides[currentSlideIndex].content, content);
+                renderCurrentSlide();
+                renderThumbnails();
+                saveSlide();
+                addAIMessage('assistant', '✅ Applied to slide!', true);
+            }
+        }
+    } catch (error) {
+        console.error('AI Error:', error);
+        addAIMessage('assistant', '❌ Error: ' + error.message);
+    }
+}
+
+function addAIMessage(role, content, isNotification = false) {
+    const container = document.getElementById('ai-messages');
+    if (!container) return;
+    
+    const cleanContent = stripMarkdown(content);
+    const div = document.createElement('div');
+    div.className = 'flex gap-2' + (isNotification ? ' opacity-70' : '');
+    
+    if (role === 'user') {
+        div.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center flex-shrink-0">
+                <svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+            </div>
+            <div class="flex-1 bg-zinc-800/50 rounded-lg p-2 text-sm text-zinc-300">${escapeHtml(cleanContent)}</div>
+        `;
+    } else {
+        div.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div class="flex-1 bg-zinc-800 rounded-lg p-2 text-sm text-zinc-300">${escapeHtml(cleanContent)}</div>
+        `;
+    }
+    
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+// Export menu
+function toggleExportMenu() {
+    const menu = document.getElementById('export-menu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    if (e.key === 'ArrowLeft' && e.ctrlKey) {
+        e.preventDefault();
+        previousSlide();
+    } else if (e.key === 'ArrowRight' && e.ctrlKey) {
+        e.preventDefault();
+        nextSlide();
+    } else if (e.key === 'n' && e.ctrlKey) {
+        e.preventDefault();
+        addNewSlide();
+    } else if (e.key === 'a' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        toggleAIPanel();
+    }
+});
+
+// Click outside to close export menu
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('export-menu');
+    const btn = e.target.closest('button[onclick="toggleExportMenu()"]');
+    if (menu && !menu.contains(e.target) && !btn) {
+        menu.classList.add('hidden');
+    }
+});
+
+// Utility functions
+function stripMarkdown(text) {
+    if (!text) return '';
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/`(.*?)`/g, '$1')
+        .replace(/#{1,6}\s+/g, '')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+        .trim();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Initialize
+init();
+</script>
+{% endblock %}
