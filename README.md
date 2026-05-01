@@ -80,7 +80,7 @@ PayOS integration for Pro tier management:
 | **Backend** | Django, Django REST Framework, Django Signals |
 | **Database** | SQLite (relational data storage) |
 | **Real-Time** | Server-Sent Events (SSE), WebSocket |
-| **AI & APIs** | Google Gemini API, DeepSeek-R1 API, PayOS Payment API |
+| **AI & APIs** | Google Gemini API, PayOS Payment API |
 | **Web Scraping** | Selenium WebDriver, Playwright |
 | **Document Processing** | python-pptx, python-docx, PyPDF2 |
 | **Security** | Django Auth, CSRF Protection, python-dotenv |
