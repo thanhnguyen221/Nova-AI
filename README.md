@@ -16,7 +16,7 @@ Experience the real-time chat and video calling features in action:
 https://github.com/user-attachments/assets/5919737d-589d-42ac-84da-8b7614b65652
 
 
-> **Coming Soon** - Demo video showcasing AI chatbot, mindmap generation, and slide creation features.
+> **Coming Soon** - Demo video showcasing AI chatbot, mindmap generation, and slide creation features...
 
 ---
 
